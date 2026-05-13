@@ -6,13 +6,19 @@ const { body, validate, query, mongoIdParam, paginationQuery } = require('../../
 // ─── All student routes require authentication ──────────────
 router.use(protect);
 
+// Role groups:
+//   READONLY: accountant can VIEW students but not add/edit/delete
+//   WRITE:    principal/admin/super_admin can fully manage
+const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant', 'faculty'];
+const WRITE_ROLES    = ['super_admin', 'admin', 'principal'];
+
 /**
- * @route   GET /api/students
- * @desc    Get all students (filter by ?classId=xxx&sectionId=xxx&search=xxx)
- * @access  Private
+ * GET /api/students
+ * All desktop staff roles (incl. accountant) can view student list.
  */
 router.get(
   '/',
+  authorize(...READONLY_ROLES),
   [
     ...paginationQuery,
     query('classId')
@@ -29,16 +35,14 @@ router.get(
 );
 
 /**
- * @route   GET /api/students/:id
- * @desc    Get single student by ID
- * @access  Private
+ * GET /api/students/:id
+ * Same read-access as above.
  */
-router.get('/:id', mongoIdParam('id'), validate, StudentController.getById);
+router.get('/:id', authorize(...READONLY_ROLES), mongoIdParam('id'), validate, StudentController.getById);
 
 /**
- * @route   POST /api/students
- * @desc    Directly create a student (admin flow — no admission needed)
- * @access  Private (admin, super_admin)
+ * POST /api/students
+ * Create a student directly — admin/principal only.
  */
 const createStudentValidation = [
   body('name').trim().notEmpty().withMessage('Student name is required'),
@@ -53,16 +57,15 @@ const createStudentValidation = [
   body('bloodGroup').optional().trim(),
   validate,
 ];
-router.post('/', authorize('admin', 'super_admin'), createStudentValidation, StudentController.create);
+router.post('/', authorize(...WRITE_ROLES), createStudentValidation, StudentController.create);
 
 /**
- * @route   PATCH /api/students/:id
- * @desc    Partial update (avatar, address, etc.)
- * @access  Private (admin, super_admin)
+ * PATCH /api/students/:id
+ * Partial update — admin/principal only.
  */
 router.patch(
   '/:id',
-  authorize('admin', 'super_admin'),
+  authorize(...WRITE_ROLES),
   mongoIdParam('id'),
   validate,
   StudentController.update

@@ -54,7 +54,7 @@ router.patch('/settings',
 
 /** POST /api/admissions — offline admin-created application */
 router.post('/',
-  authorize('admin', 'super_admin'),
+  authorize('admin', 'super_admin', 'principal'),
   [
     body('studentName').trim().notEmpty().withMessage('Student name is required'),
     body('dateOfBirth').notEmpty().isISO8601().withMessage('Valid date of birth is required'),
@@ -77,21 +77,21 @@ router.get('/:id', mongoIdParam('id'), validate, AdmissionController.getById);
 
 /** PATCH /api/admissions/:id — edit application */
 router.patch('/:id',
-  authorize('admin', 'super_admin'),
+  authorize('admin', 'super_admin', 'principal'),
   mongoIdParam('id'), validate,
   AdmissionController.update
 );
 
 /** PATCH /api/admissions/:id/approve */
 router.patch('/:id/approve',
-  authorize('admin', 'super_admin'),
+  authorize('admin', 'super_admin', 'principal'),
   mongoIdParam('id'), validate,
   AdmissionController.approve
 );
 
 /** PATCH /api/admissions/:id/reject */
 router.patch('/:id/reject',
-  authorize('admin', 'super_admin'),
+  authorize('admin', 'super_admin', 'principal'),
   mongoIdParam('id'),
   [body('remarks').optional().trim(), validate],
   AdmissionController.reject
@@ -99,7 +99,7 @@ router.patch('/:id/reject',
 
 /** PATCH /api/admissions/:id/hold */
 router.patch('/:id/hold',
-  authorize('admin', 'super_admin'),
+  authorize('admin', 'super_admin', 'principal'),
   mongoIdParam('id'),
   [body('remarks').optional().trim(), validate],
   AdmissionController.hold

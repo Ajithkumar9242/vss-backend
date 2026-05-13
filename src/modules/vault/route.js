@@ -5,9 +5,10 @@ const multer    = require('multer');
 const { protect, authorize } = require('../../middlewares/auth');
 const VaultController = require('./controller');
 
-const ADMIN_ROLES  = ['admin', 'super_admin', 'principal'];
+const ADMIN_ROLES  = ['admin', 'super_admin', 'principal', 'accountant'];
 const PARENT_ROLES = ['parent'];
 const ALL_ROLES    = [...ADMIN_ROLES, ...PARENT_ROLES];
+
 
 // Multer: memory storage for Cloudinary upload (10 MB limit for vault)
 const upload = multer({

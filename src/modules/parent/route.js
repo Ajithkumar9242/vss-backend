@@ -5,10 +5,13 @@ const { validate, body, mongoIdParam } = require('../../utils/validators');
 
 router.use(protect);
 
+// Role groups
+const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant'];
+const WRITE_ROLES    = ['super_admin', 'admin', 'principal'];
+
 /**
- * @route   PATCH /api/parents/profile/me
- * @desc    Self-service: parent updates own phone / email / address / occupation
- * @access  Private (any authenticated user with a parent record)
+ * PATCH /api/parents/profile/me
+ * Self-service: parent updates own profile — open to any authenticated user.
  */
 router.patch(
   '/profile/me',
@@ -22,9 +25,13 @@ router.patch(
   ParentController.updateMyProfile
 );
 
+/**
+ * POST /api/parents
+ * Create a parent record — admin/principal only.
+ */
 router.post(
   '/',
-  authorize('admin', 'super_admin', 'principal'),
+  authorize(...WRITE_ROLES),
   [
     body('name').trim().notEmpty().withMessage('Parent name is required'),
     body('phone').trim().notEmpty().withMessage('Phone number is required'),
@@ -34,12 +41,20 @@ router.post(
   ParentController.create
 );
 
-router.get('/', ParentController.getAll);
-router.get('/:id', mongoIdParam('id'), validate, ParentController.getById);
+/**
+ * GET /api/parents
+ * List all parents — accountant + admin + principal can view.
+ */
+router.get('/', authorize(...READONLY_ROLES), ParentController.getAll);
+router.get('/:id', authorize(...READONLY_ROLES), mongoIdParam('id'), validate, ParentController.getById);
 
+/**
+ * PATCH /api/parents/:id/link
+ * Link a student to a parent — admin/principal only.
+ */
 router.patch(
   '/:id/link',
-  authorize('admin', 'super_admin', 'principal'),
+  authorize(...WRITE_ROLES),
   [
     mongoIdParam('id'),
     body('studentId').isMongoId().withMessage('Valid student ID is required'),
@@ -50,11 +65,11 @@ router.patch(
 
 /**
  * PATCH /api/parents/:id
- * Admin partial update (photo, etc.)
+ * Admin partial update — admin/principal only.
  */
 router.patch(
   '/:id',
-  authorize('admin', 'super_admin', 'principal'),
+  authorize(...WRITE_ROLES),
   mongoIdParam('id'),
   validate,
   ParentController.update

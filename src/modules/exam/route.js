@@ -5,6 +5,7 @@ const { validate, body, query, mongoIdParam } = require('../../utils/validators'
 const idempotency = require('../../middlewares/idempotency');
 
 const admin  = authorize('admin', 'super_admin');
+const adminPrincipal = authorize('admin', 'super_admin', 'principal');
 const staff  = authorize('admin', 'super_admin', 'faculty');
 const reader = authorize('admin', 'super_admin', 'faculty', 'parent');
 
@@ -96,6 +97,6 @@ router.get('/:examId/marks', mongoIdParam('examId'), validate, C.getExamMarks);
 router.get('/:examId/results', reader, mongoIdParam('examId'), validate, C.getExamResults);
 
 // ── PDF Download ──────────────────────────────────────────
-router.get('/:examId/results/pdf', admin, mongoIdParam('examId'), validate, C.getResultsPdf);
+router.get('/:examId/results/pdf', adminPrincipal, mongoIdParam('examId'), validate, C.getResultsPdf);
 
 module.exports = router;

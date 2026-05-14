@@ -15,9 +15,16 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const allowed = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
     if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Only JPEG, PNG, WebP, and PDF files are allowed'), false);
+    else cb(new Error('Only JPEG, PNG, WebP, PDF, DOC, and DOCX files are allowed'), false);
   },
 });
 

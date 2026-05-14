@@ -45,6 +45,8 @@ const userSchema = new mongoose.Schema(
     },
     // Refresh token hash for OTP-based parent sessions
     refreshTokenHash: { type: String, select: false, default: null },
+    // FCM device tokens for push notifications (max 5)
+    fcmTokens: { type: [String], default: [] },
   },
   {
     timestamps: true,

@@ -1,6 +1,7 @@
 const Notification = require('../../models/Notification');
 const AppError = require('../../utils/AppError');
 const mongoose = require('mongoose');
+const FcmService = require('../../utils/fcm');
 
 /**
  * Notification Service — in-app notification management.
@@ -10,8 +11,17 @@ class NotificationService {
    * Create a notification for a user.
    * Supports optional contentType and contentUrl for rich notifications.
    */
-  static async create(userId, { title, message, type = 'info', contentType = 'text', contentUrl = null, metadata = null }) {
-    return Notification.create({ userId, title, message, type, contentType, contentUrl, metadata });
+  static async create(userId, { title, message, type = 'info', contentType = 'text', contentUrl = null, metadata = null, skipPush = false }) {
+    const notification = await Notification.create({ userId, title, message, type, contentType, contentUrl, metadata });
+    if (!skipPush) {
+      FcmService.sendToUser(userId, {
+        title,
+        body: message,
+        url: metadata?.url || contentUrl || '/',
+        data: { notificationId: notification._id, type },
+      }).catch(() => {});
+    }
+    return notification;
   }
 
   /**
@@ -130,6 +140,12 @@ class NotificationService {
     }));
 
     await Notification.insertMany(docs, { ordered: false });
+    FcmService.sendToUsers(userIds, {
+      title,
+      body: message,
+      url: metadata?.url || contentUrl || '/',
+      data: { type, target },
+    }).catch(() => {});
     return { sent: docs.length, target };
   }
 
@@ -145,5 +161,3 @@ class NotificationService {
 }
 
 module.exports = NotificationService;
-
-

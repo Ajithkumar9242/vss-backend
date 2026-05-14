@@ -3,7 +3,6 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
-const axios = require('axios');
 
 const AppError = require('../../utils/AppError');
 const CounterService = require('../../utils/counterService');
@@ -340,6 +339,11 @@ class VaultService {
         { user },
         file
       );
+    }
+
+    if (!file.originalName) file.originalName = 'vault-file.pdf';
+    if (!file.mimeType && /\.pdf(?:\?|$)/i.test(file.fileUrl || '')) {
+      file.mimeType = 'application/pdf';
     }
 
     return file;

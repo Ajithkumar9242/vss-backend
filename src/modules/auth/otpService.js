@@ -9,6 +9,8 @@ const OTP_TTL_MINUTES = 5;
 const OTP_MAX_ATTEMPTS = 5;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET + '_refresh';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '180d'; // 6 months
+const OTP_DEMO_MODE = process.env.OTP_DEMO_MODE !== 'false';
+const DEMO_OTP = '123456';
 
 /**
  * OtpService — handles phone-based OTP login for parents.
@@ -57,6 +59,10 @@ class OtpService {
       }
     }
 
+    if (OTP_DEMO_MODE) {
+      return { message: 'Demo mode enabled. Use test OTP: 123456' };
+    }
+
     const otp = OtpService._generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
@@ -82,31 +88,35 @@ class OtpService {
    * @returns {{ user, accessToken, refreshToken }}
    */
   static async verifyOtp(phone, otp, type = 'parent') {
-    const sessionKey = type === 'faculty' ? `faculty:${phone}` : phone;
-    const session = await OtpSession.findOne({ phone: sessionKey, verified: false }).select('+otpHash');
-    if (!session) {
-      throw new AppError('No pending OTP for this number. Please request a new OTP.', 400);
-    }
+    if (OTP_DEMO_MODE) {
+      if (otp !== DEMO_OTP) throw new AppError('Invalid demo OTP. Use 123456.', 400);
+    } else {
+      const sessionKey = type === 'faculty' ? `faculty:${phone}` : phone;
+      const session = await OtpSession.findOne({ phone: sessionKey, verified: false }).select('+otpHash');
+      if (!session) {
+        throw new AppError('No pending OTP for this number. Please request a new OTP.', 400);
+      }
 
-    if (new Date() > session.expiresAt) {
-      await session.deleteOne();
-      throw new AppError('OTP has expired. Please request a new one.', 400);
-    }
+      if (new Date() > session.expiresAt) {
+        await session.deleteOne();
+        throw new AppError('OTP has expired. Please request a new one.', 400);
+      }
 
-    if (session.attempts >= OTP_MAX_ATTEMPTS) {
-      await session.deleteOne();
-      throw new AppError('Too many failed attempts. Please request a new OTP.', 429);
-    }
+      if (session.attempts >= OTP_MAX_ATTEMPTS) {
+        await session.deleteOne();
+        throw new AppError('Too many failed attempts. Please request a new OTP.', 429);
+      }
 
-    const isValid = await session.compareOtp(otp);
-    if (!isValid) {
-      session.attempts += 1;
+      const isValid = await session.compareOtp(otp);
+      if (!isValid) {
+        session.attempts += 1;
+        await session.save();
+        throw new AppError(`Incorrect OTP. ${OTP_MAX_ATTEMPTS - session.attempts} attempts remaining.`, 400);
+      }
+
+      session.verified = true;
       await session.save();
-      throw new AppError(`Incorrect OTP. ${OTP_MAX_ATTEMPTS - session.attempts} attempts remaining.`, 400);
     }
-
-    session.verified = true;
-    await session.save();
 
     let user;
 

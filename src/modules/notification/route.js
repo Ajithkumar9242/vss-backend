@@ -7,8 +7,11 @@ router.use(protect);
 
 router.get('/', NotificationController.getNotifications);
 router.get('/unread-count', NotificationController.getUnreadCount);
-router.patch('/:id/read', mongoIdParam('id'), validate, NotificationController.markRead);
 router.patch('/read-all', NotificationController.markAllRead);
+router.patch('/:id/read', mongoIdParam('id'), validate, NotificationController.markRead);
+
+// ─── FCM Device Token ────────────────────────────────────────
+router.post('/device-token', NotificationController.saveDeviceToken);
 
 // ─── Broadcast (admin only) ──────────────────────────────────
 router.post(
@@ -28,5 +31,11 @@ router.post(
   NotificationController.broadcast
 );
 
-module.exports = router;
+// ─── Test Push (admin only) ──────────────────────────────────
+router.post(
+  '/send-test',
+  authorize('admin', 'super_admin'),
+  NotificationController.sendTestNotification
+);
 
+module.exports = router;

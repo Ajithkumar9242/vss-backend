@@ -125,6 +125,30 @@ class HostelService {
       allocations: allocMap[r._id.toString()] || [],
     }));
   }
+
+  /**
+   * Get the active hostel allocation for a single student.
+   * Returns null if the student is not allocated (never throws 404).
+   */
+  static async getStudentAllocation(studentId) {
+    if (!mongoose.isValidObjectId(studentId)) throw new AppError('Invalid student ID', 400);
+
+    const allocation = await RoomAllocation.findOne({ studentId, isActive: true })
+      .populate('roomId', 'roomNumber type hostelName floor')
+      .lean();
+
+    if (!allocation) return null; // not in hostel — caller shows message
+
+    return {
+      allocated: true,
+      roomNumber: allocation.roomId?.roomNumber || 'N/A',
+      hostelName: allocation.roomId?.hostelName || allocation.roomId?.type || 'Hostel',
+      floor: allocation.roomId?.floor || null,
+      bedNumber: allocation.bedNumber,
+      status: allocation.isActive ? 'Active' : 'Inactive',
+      startDate: allocation.startDate || allocation.createdAt,
+    };
+  }
 }
 
 module.exports = HostelService;

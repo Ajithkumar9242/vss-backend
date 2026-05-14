@@ -3,11 +3,19 @@
 const VaultService = require('./service');
 const ApiResponse = require('../../utils/apiResponse');
 const AppError = require('../../utils/AppError');
+const axios = require('axios');
 const { resolveStudentForParent, ADMIN_ROLES } = require('../../utils/vaultGuard');
 const SchoolSetting = require('../../models/SchoolSetting');
 const { generateRequestReceiptPdf } = require('../../utils/pdf/requestReceiptPdf');
 const StudentDocumentRequest = require('../../models/StudentDocumentRequest');
 
+const safePdfFilename = (name = 'vault-file.pdf') => {
+  const withExt = /\.pdf$/i.test(name) ? name : `${name}.pdf`;
+  return withExt
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/[\r\n]/g, '')
+    .trim() || 'vault-file.pdf';
+};
 
 class VaultController {
 
@@ -137,10 +145,35 @@ class VaultController {
         return ApiResponse.error(res, 'File URL missing', 404);
       }
 
-      // Security validated — redirect browser directly to Cloudinary.
-      // Cloudinary serves the file with correct Content-Type for PDFs,
-      // images, etc. No proxy streaming needed (avoids 401 on signed URLs).
-      return res.redirect(file.fileUrl);
+      let fileUrl = file.fileUrl;
+
+      // Safety transform: if a PDF/doc is stored under /image/upload/ (wrong resource_type),
+      // rewrite to /raw/upload/ so Cloudinary serves it correctly.
+      const isPdf = /\.pdf$/i.test(fileUrl) || file.mimeType === 'application/pdf';
+      const isDoc = /\.(docx?|xlsx?)$/i.test(fileUrl);
+      if ((isPdf || isDoc) && fileUrl.includes('/image/upload/')) {
+        fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/');
+      }
+
+      if (isPdf) {
+        const response = await axios.get(fileUrl, {
+          responseType: 'stream',
+          maxRedirects: 5,
+          headers: { Accept: 'application/pdf' },
+          validateStatus: (status) => status >= 200 && status < 300,
+        });
+
+        console.log('[PDF]', response.status, response.headers['content-type']);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${safePdfFilename(file.originalName)}"`);
+        res.setHeader('Cache-Control', 'private, max-age=0');
+
+        response.data.on('error', next);
+        return response.data.pipe(res);
+      }
+
+      return res.redirect(fileUrl);
 
     } catch (error) {
       next(error);

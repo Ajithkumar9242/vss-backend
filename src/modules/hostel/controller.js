@@ -43,6 +43,22 @@ class HostelController {
       return ApiResponse.success(res, data, 'Occupancy fetched');
     } catch (e) { next(e); }
   }
+
+  /** Parent: get hostel allocation for a specific student */
+  static async getMyHostel(req, res, next) {
+    try {
+      const { studentId } = req.query;
+      if (!studentId) {
+        return ApiResponse.error(res, 'studentId query param required', 400);
+      }
+      if (req.user.role === 'parent') {
+        const { resolveStudentForParent } = require('../../utils/vaultGuard');
+        await resolveStudentForParent(req, studentId);
+      }
+      const data = await HostelService.getStudentAllocation(studentId);
+      return ApiResponse.success(res, data, 'Hostel info fetched');
+    } catch (e) { next(e); }
+  }
 }
 
 module.exports = HostelController;

@@ -248,6 +248,8 @@ class AdmissionService {
     const student = await Student.create({
       admissionId: admission._id,
       admissionNumber,
+      admissionNo: admissionNumber,
+      registerNo: rollNo,
       rollNo,
       name: admission.studentName,
       dateOfBirth: admission.dateOfBirth,

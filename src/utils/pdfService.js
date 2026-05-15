@@ -142,7 +142,8 @@ async function generateInvoicePDF(invoice, school, penaltySummary = null) {
 
   const infoRows = [
     ['Student Name', student.name || '—',          'Class / Section',  `${className}${sectionName !== '—' ? ' / ' + sectionName : ''}`],
-    ['Roll No',      student.rollNo || student.admissionNumber || '—', 'Academic Year', ay.name || ay.label || '—'],
+    ['Admission No',  student.admissionNo || student.admissionNumber || '-'],
+    ['Register No',   student.registerNo || student.rollNo || '-'],
     ['Parent Name',  student.parentName || '—',     'Parent Phone',     parentPhone],
     ['Invoice No',   invoice.invoiceNumber || '—',  'Parent Email',     parentEmail || '—'],
     ['Next Due Date', invoice.nextDueDate ? fmt(invoice.nextDueDate) : '—', 'Invoice Date', fmt(invoice.createdAt || new Date())],

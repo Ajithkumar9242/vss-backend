@@ -13,6 +13,8 @@ router.use(authorize('admin', 'super_admin'));
 router.get('/school-setting', C.getSchoolSetting);
 router.put('/school-setting', C.upsertSchoolSetting);
 router.post('/school-setting/logo', upload.single('logo'), C.uploadLogo);
+router.get('/message-templates', C.getMessageTemplates);
+router.put('/message-templates', C.upsertMessageTemplates);
 
 // ─── Academic Year ───────────────────────────────────────────
 router.post('/academic-years', C.createAcademicYear);
@@ -62,4 +64,3 @@ router.get('/sections', SchoolController.getSections);
 router.get('/classes', require('../school/controller').getClasses);
 
 module.exports = router;
-

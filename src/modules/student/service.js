@@ -25,11 +25,14 @@ class StudentService {
     if (query.isActive !== undefined) {
       filter.isActive = query.isActive === 'true';
     }
-    // Search by name or rollNo
+    // Search by name / roll / admission / register number
     if (query.search) {
       filter.$or = [
         { name: { $regex: query.search, $options: 'i' } },
         { rollNo: { $regex: query.search, $options: 'i' } },
+        { admissionNo: { $regex: query.search, $options: 'i' } },
+        { admissionNumber: { $regex: query.search, $options: 'i' } },
+        { registerNo: { $regex: query.search, $options: 'i' } },
       ];
     }
 
@@ -96,14 +99,20 @@ class StudentService {
     // Resolve academic year
     const academicYearId = await SetupService.resolveAcademicYearId(data.academicYearId);
 
+    const admissionNo = (data.admissionNo || data.admissionNumber || '').trim() || null;
+    const registerNo = (data.registerNo || '').trim() || null;
+
+    await StudentService._assertUniqueNumbers({ admissionNo, registerNo });
+
     // Auto-generate roll number
     const rollNo = await AdmissionService.generateRollNo(data.classId);
-
-
 
     const student = await Student.create({
       ...data,
       rollNo,
+      admissionNo: admissionNo || rollNo,
+      admissionNumber: data.admissionNumber || admissionNo || null,
+      registerNo: registerNo || rollNo,
       academicYearId,
       admissionId: null,
     });
@@ -143,6 +152,15 @@ class StudentService {
       if (v !== null && v !== undefined && v !== '') clean[k] = v;
     });
 
+    if (clean.admissionNo || clean.admissionNumber || clean.registerNo) {
+      await StudentService._assertUniqueNumbers({
+        admissionNo: (clean.admissionNo || clean.admissionNumber || '').trim() || null,
+        registerNo: (clean.registerNo || '').trim() || null,
+        excludeId: studentId,
+      });
+      if (clean.admissionNo && !clean.admissionNumber) clean.admissionNumber = clean.admissionNo;
+    }
+
     const student = await Student.findByIdAndUpdate(
       studentId,
       { $set: clean },
@@ -153,6 +171,27 @@ class StudentService {
 
     if (!student) throw new AppError('Student not found', 404);
     return student;
+  }
+
+  static async _assertUniqueNumbers({ admissionNo, registerNo, excludeId = null }) {
+    const or = [];
+    if (admissionNo) {
+      or.push({ admissionNo });
+      or.push({ admissionNumber: admissionNo });
+    }
+    if (registerNo) or.push({ registerNo });
+    if (!or.length) return;
+
+    const query = { $or: or };
+    if (excludeId) query._id = { $ne: excludeId };
+    const existing = await Student.findOne(query).select('admissionNo admissionNumber registerNo');
+    if (!existing) return;
+    if (admissionNo && [existing.admissionNo, existing.admissionNumber].includes(admissionNo)) {
+      throw new AppError('Admission No already exists', 400);
+    }
+    if (registerNo && existing.registerNo === registerNo) {
+      throw new AppError('Register No already exists', 400);
+    }
   }
 }
 

@@ -30,6 +30,24 @@ const schoolSettingSchema = new mongoose.Schema(
     address: { type: String, trim: true },
     logoUrl: { type: String, trim: true },
     socialLinks: [{ platform: String, url: String }],
+    messageTemplates: {
+      admissionApproval: {
+        enabled: { type: Boolean, default: true },
+        body: { type: String, default: 'Dear {{parentName}},\nYour child {{studentName}} has been approved for admission to {{className}}.\nRegards,\n{{schoolName}}' },
+      },
+      feeReminder: {
+        enabled: { type: Boolean, default: true },
+        body: { type: String, default: 'Dear {{parentName}}, fee amount {{amount}} for {{studentName}} is due on {{dueDate}}.\nRegards,\n{{schoolName}}' },
+      },
+      attendanceAlert: {
+        enabled: { type: Boolean, default: true },
+        body: { type: String, default: 'Dear {{parentName}}, attendance alert for {{studentName}} of {{className}}.\nRegards,\n{{schoolName}}' },
+      },
+      examPublished: {
+        enabled: { type: Boolean, default: true },
+        body: { type: String, default: 'Dear {{parentName}}, exam results for {{studentName}} of {{className}} are published.\nRegards,\n{{schoolName}}' },
+      },
+    },
 
     // ─── Admission Control ────────────────────────────────────
     admissionsOpen: { type: Boolean, default: false },

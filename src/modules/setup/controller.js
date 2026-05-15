@@ -27,6 +27,20 @@ class SetupController {
     } catch (e) { next(e); }
   }
 
+  static async getMessageTemplates(req, res, next) {
+    try {
+      const data = await SetupService.getMessageTemplates();
+      return ApiResponse.success(res, data, 'Message templates fetched');
+    } catch (e) { next(e); }
+  }
+
+  static async upsertMessageTemplates(req, res, next) {
+    try {
+      const data = await SetupService.upsertMessageTemplates(req.body);
+      return ApiResponse.success(res, data.messageTemplates, 'Message templates saved');
+    } catch (e) { next(e); }
+  }
+
 
   // ─── Academic Year ───────────────────────────────────────
   static async createAcademicYear(req, res, next) {

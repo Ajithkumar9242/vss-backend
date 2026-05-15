@@ -15,6 +15,20 @@ const studentSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    admissionNo: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
+    },
+    registerNo: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
+    },
     rollNo: {
       type: String,
       unique: true,

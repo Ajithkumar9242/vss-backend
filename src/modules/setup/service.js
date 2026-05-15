@@ -28,6 +28,49 @@ class SetupService {
     return SchoolSetting.create(data);
   }
 
+  static _defaultMessageTemplates() {
+    return {
+      admissionApproval: {
+        enabled: true,
+        body: 'Dear {{parentName}},\nYour child {{studentName}} has been approved for admission to {{className}}.\nRegards,\n{{schoolName}}',
+      },
+      feeReminder: {
+        enabled: true,
+        body: 'Dear {{parentName}}, fee amount {{amount}} for {{studentName}} is due on {{dueDate}}.\nRegards,\n{{schoolName}}',
+      },
+      attendanceAlert: {
+        enabled: true,
+        body: 'Dear {{parentName}}, attendance alert for {{studentName}} of {{className}}.\nRegards,\n{{schoolName}}',
+      },
+      examPublished: {
+        enabled: true,
+        body: 'Dear {{parentName}}, exam results for {{studentName}} of {{className}} are published.\nRegards,\n{{schoolName}}',
+      },
+    };
+  }
+
+  static async getMessageTemplates() {
+    const setting = await SchoolSetting.findOne().lean();
+    return {
+      ...SetupService._defaultMessageTemplates(),
+      ...(setting?.messageTemplates || {}),
+    };
+  }
+
+  static async upsertMessageTemplates(messageTemplates) {
+    const existing = await SchoolSetting.findOne();
+    const merged = {
+      ...SetupService._defaultMessageTemplates(),
+      ...(existing?.messageTemplates?.toObject?.() || existing?.messageTemplates || {}),
+      ...(messageTemplates || {}),
+    };
+    if (existing) {
+      existing.messageTemplates = merged;
+      return existing.save();
+    }
+    return SchoolSetting.create({ schoolName: 'VMS School ERP', messageTemplates: merged });
+  }
+
   // ═══════════════════════════════════════════════════════════
   //  ACADEMIC YEAR
   // ═══════════════════════════════════════════════════════════
@@ -144,11 +187,8 @@ class SetupService {
     }
 
     // ── Sections validation ───────────────────────────────────
-    if (!sections || !Array.isArray(sections) || sections.length === 0) {
-      throw new AppError('sections must be a non-empty array', 400);
-    }
-
-    const uniqueSectionIds = [...new Set(sections.map((s) => s.toString()))];
+    const sectionList = Array.isArray(sections) ? sections.filter(Boolean) : [];
+    const uniqueSectionIds = [...new Set(sectionList.map((s) => s.toString()))];
     for (const sid of uniqueSectionIds) {
       if (!mongoose.isValidObjectId(sid)) {
         throw new AppError(`Invalid sectionId: ${sid}`, 400);

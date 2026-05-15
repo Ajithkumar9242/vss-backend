@@ -26,6 +26,7 @@ const fs   = require('fs');
 const axios = require('axios');
 
 const VSS_LOGO_PATH = path.join(__dirname, 'assets', 'vss-logo.png');
+const CBSE_LOGO_PATH = path.join(__dirname, 'assets', 'cbse-logo.png');
 
 // Roboto fonts live one level up (src/utils/)
 const FONT_REGULAR = path.join(__dirname, '..', 'Roboto-Regular.ttf');
@@ -64,14 +65,23 @@ async function fetchLogoBuffer(logoUrl) {
   }
 }
 
-/** Load VSS logo from local disk. Returns null if file is absent. */
-function loadVssLogo() {
+/** Load a local logo from disk. Returns null if file is absent. */
+function loadLocalLogo(filePath) {
   try {
-    if (fs.existsSync(VSS_LOGO_PATH)) return fs.readFileSync(VSS_LOGO_PATH);
+    if (fs.existsSync(filePath)) return fs.readFileSync(filePath);
     return null;
   } catch {
     return null;
   }
+}
+
+/** Load VSS logo from local disk. Returns null if file is absent. */
+function loadVssLogo() {
+  return loadLocalLogo(VSS_LOGO_PATH);
+}
+
+function loadCbseLogo() {
+  return loadLocalLogo(CBSE_LOGO_PATH);
 }
 
 /**
@@ -176,7 +186,7 @@ async function drawSingleLogoHeader(doc, school, opts = {}) {
 }
 
 /**
- * Draw a header with school logo LEFT and VSS logo RIGHT.
+ * Draw a header with school logo LEFT and CBSE logo RIGHT.
  * Used by: Exam Results / Marks Card PDF only.
  *
  * @param {PDFDocument} doc
@@ -192,9 +202,9 @@ async function drawDualLogoHeaderExam(doc, school, opts = {}) {
   registerFonts(doc);
 
   const logoUrl       = school?.logoUrl || null;
-  const [schoolLogoBuf, vssLogoBuf] = await Promise.all([
+  const [schoolLogoBuf, cbseLogoBuf] = await Promise.all([
     fetchLogoBuffer(logoUrl),
-    Promise.resolve(loadVssLogo()),
+    Promise.resolve(loadCbseLogo() || loadVssLogo()),
   ]);
 
   const yAfter = drawBandAndText(doc, school, startY, logoSize, /* hasRightLogo */ true);
@@ -204,8 +214,8 @@ async function drawDualLogoHeaderExam(doc, school, opts = {}) {
   // Left: school logo
   placeImage(doc, schoolLogoBuf, MARGIN, logoY, logoSize);
 
-  // Right: VSS logo
-  placeImage(doc, vssLogoBuf, rightX, logoY, logoSize);
+  // Right: CBSE logo (marks cards only)
+  placeImage(doc, cbseLogoBuf, rightX, logoY, logoSize);
 
   return yAfter;
 }

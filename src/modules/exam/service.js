@@ -300,7 +300,7 @@ class ExamService {
       .populate('classId', 'name code').populate('subjects', 'name code').lean();
     if (!exam) throw new AppError('Exam not found', 404);
     const marks = await Mark.find({ examId })
-      .populate('studentId', 'name rollNo').populate('subjectId', 'name code')
+      .populate('studentId', 'name rollNo admissionNo admissionNumber registerNo').populate('subjectId', 'name code')
       .sort({ createdAt: 1 }).lean();
     return { exam: ExamService._serialize(exam), marks };
   }
@@ -324,7 +324,7 @@ class ExamService {
 
     // Get all students in the class
     const students = await Student.find({ classId: exam.classId._id || exam.classId })
-      .select('name rollNo').sort({ rollNo: 1 }).lean();
+      .select('name rollNo admissionNo admissionNumber registerNo').sort({ rollNo: 1 }).lean();
 
     // Get all marks for this exam
     const marks = await Mark.find({ examId })
@@ -640,8 +640,8 @@ class ExamService {
 
     // ── Results table ────────────────────────────────────────
     const tableTop = statsY + 60;
-    const headers = ['#', 'Rank', 'Roll No', 'Student Name', 'Total', '%', 'Grade', 'Result'];
-    const colWidths = [24, 40, 65, 150, 65, 50, 50, 60];
+    const headers = ['#', 'Rank', 'Adm No', 'Reg No', 'Student Name', 'Total', '%', 'Grade', 'Result'];
+    const colWidths = [22, 34, 58, 58, 125, 58, 42, 44, 54];
     let x = 30;
 
     // Table header
@@ -665,7 +665,8 @@ class ExamService {
       const cells = [
         String(idx + 1),
         r.rank ? `#${r.rank}` : '—',
-        r.student?.rollNo || '—',
+        r.student?.admissionNo || r.student?.admissionNumber || '—',
+        r.student?.registerNo || r.student?.rollNo || '—',
         r.student?.name || '—',
         r.result === 'Absent' ? 'Absent' : `${r.totalObtained}/${r.totalMax}`,
         r.result === 'Absent' ? '—' : `${r.percentage}%`,
@@ -676,8 +677,8 @@ class ExamService {
 
       x = 30;
       cells.forEach((cell, ci) => {
-        const color = ci === 7 ? resultColor : DARK;
-        doc.fill(color).fontSize(8).font(ci === 7 ? 'Roboto-Bold' : 'Roboto')
+        const color = ci === 8 ? resultColor : DARK;
+        doc.fill(color).fontSize(8).font(ci === 8 ? 'Roboto-Bold' : 'Roboto')
           .text(cell, x + 3, rowY + 4, { width: colWidths[ci] - 6, lineBreak: false });
         x += colWidths[ci];
       });

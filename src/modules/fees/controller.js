@@ -172,7 +172,7 @@ class FeesController {
       const AppError          = require('../../utils/AppError');
 
       const invoice = await FeeInvoice.findById(req.params.invoiceId)
-        .populate('studentId', 'name rollNo admissionNumber parentName parentPhone classId sectionId')
+        .populate('studentId', 'name rollNo admissionNumber admissionNo registerNo parentName parentPhone classId sectionId')
         .populate('classId',   'name code')
         .populate('sectionId', 'name')
         .populate('academicYearId', 'name label')
@@ -192,6 +192,18 @@ class FeesController {
           .lean();
         if (profile) invoice.feeProfileId = profile;
       }
+
+      const PenaltyEngine = require('../../utils/penaltyEngine');
+      const penaltySummary = PenaltyEngine.computeInvoicePenalty(invoice, null);
+      const effectivePenalty = Math.max(penaltySummary.totalPenalty || 0, invoice.penaltyAmount || 0);
+      const baseFee = invoice.netFee != null ? invoice.netFee : (invoice.grossFee || invoice.totalAmount || 0);
+      invoice.penaltyAmount = effectivePenalty;
+      invoice.dueAmount = Math.max(
+        0,
+        baseFee + effectivePenalty -
+          (invoice.waivedAmount || 0) - (invoice.paidAmount || 0)
+      );
+      invoice.penaltySummary = penaltySummary;
 
       return ApiResponse.success(res, invoice, 'Invoice fetched');
     } catch (error) { next(error); }
@@ -312,7 +324,7 @@ class FeesController {
       const AppError        = require('../../utils/AppError');
 
       const invoice = await FeeInvoice.findById(invoiceId)
-        .populate('studentId', 'name rollNo admissionNumber parentName parentPhone parentEmail classId sectionId')
+        .populate('studentId', 'name rollNo admissionNumber admissionNo registerNo parentName parentPhone parentEmail classId sectionId')
         .populate('classId',   'name code')
         .populate('sectionId', 'name')
         .populate('academicYearId', 'name label')
@@ -335,6 +347,14 @@ class FeesController {
 
       const school = await SchoolSetting.findOne().lean() || {};
       const penaltySummary = PenaltyEngine.computeInvoicePenalty(invoice, null);
+      const effectivePenalty = Math.max(penaltySummary.totalPenalty || 0, invoice.penaltyAmount || 0);
+      const baseFee = invoice.netFee != null ? invoice.netFee : (invoice.grossFee || invoice.totalAmount || 0);
+      invoice.penaltyAmount = effectivePenalty;
+      invoice.dueAmount = Math.max(
+        0,
+        baseFee + effectivePenalty -
+          (invoice.waivedAmount || 0) - (invoice.paidAmount || 0)
+      );
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="Invoice_${invoice.invoiceNumber || invoiceId}.pdf"`);
@@ -356,7 +376,7 @@ class FeesController {
       const AppError      = require('../../utils/AppError');
 
       const payment = await FeePayment.findById(paymentId)
-        .populate('studentId', 'name rollNo admissionNumber classId sectionId')
+        .populate('studentId', 'name rollNo admissionNumber admissionNo registerNo classId sectionId')
         .populate('collectedBy', 'name')
         .lean();
       if (!payment) throw new AppError('Payment not found', 404);

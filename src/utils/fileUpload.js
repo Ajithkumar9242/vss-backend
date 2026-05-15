@@ -28,12 +28,24 @@ const safeFileBase = (name = 'file') => (
 );
 
 const verifyPdfUrl = async (url) => {
-  const response = await axios.get(url, {
-    responseType: 'arraybuffer',
-    headers: { Range: 'bytes=0-4' },
-    validateStatus: (status) => status >= 200 && status < 300,
-    maxRedirects: 5,
-  });
+  let response;
+  try {
+    response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: { Range: 'bytes=0-4' },
+      validateStatus: (status) => status >= 200 && status < 300,
+      maxRedirects: 5,
+    });
+  } catch (error) {
+    const status = error.response?.status;
+    const body = Buffer.isBuffer(error.response?.data)
+      ? error.response.data.toString('utf8')
+      : String(error.response?.data || '');
+    if (status === 401 || /blocked for delivery/i.test(body)) {
+      console.warn('[Cloudinary] Enable "Allow delivery of PDF and ZIP files" in Cloudinary Settings → Security');
+    }
+    throw error;
+  }
 
   const signature = Buffer.from(response.data).slice(0, 5).toString('utf8');
   if (signature !== '%PDF-') {
@@ -80,7 +92,7 @@ const uploadToCloudinary = async (file, folder = 'vms-erp') => {
         const isPdf = file.mimetype === 'application/pdf';
 
         const ext = (file.originalname || '').split('.').pop()?.toLowerCase();
-        const safeName = `${safeFileBase(file.originalname)}_${Date.now()}`;
+        const safeName = safeFileBase(file.originalname);
         const publicId = isImage ? safeName : `${safeName}.${isPdf ? 'pdf' : (ext || 'bin')}`;
 
         const stream = cloudinary.uploader.upload_stream(

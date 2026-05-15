@@ -54,7 +54,7 @@ class FeesService {
 
     const invoice = await FeeInvoice.findOne(query)
       .sort({ createdAt: -1 })
-      .populate('studentId', 'name rollNo classId parentName parentPhone admissionNumber')
+      .populate('studentId', 'name rollNo classId parentName parentPhone admissionNumber admissionNo registerNo')
       .populate('classId', 'name code')
       .populate('academicYearId', 'name')
       .populate('feeProfileId')
@@ -103,22 +103,19 @@ class FeesService {
     const netFee         = invoice.netFee || Math.max(0, grossFee - discountAmount);
     const paidAmount     = invoice.paidAmount || 0;
     const dueAmount      = invoice.dueAmount  || Math.max(0, netFee - paidAmount);
-    const penaltyAmount  = invoice.penaltyAmount || 0;
+    const PenaltyEngine = require('../../utils/penaltyEngine');
+    const penaltySummary = PenaltyEngine.computeInvoicePenalty(invoice, null);
+    const penaltyAmount  = Math.max(penaltySummary.totalPenalty || 0, invoice.penaltyAmount || 0);
 
     const statusMap = { paid: 'Paid', partial: 'Partial', overdue: 'Overdue', unpaid: 'Pending' };
     const status = statusMap[invoice.status] || 'Pending';
 
-    // Compute days overdue from nextDueDate
-    let daysOverdue = 0;
-    if (invoice.nextDueDate && invoice.status !== 'paid') {
-      const diff = Math.floor((Date.now() - new Date(invoice.nextDueDate)) / 86400000);
-      if (diff > 0) daysOverdue = diff;
-    }
+    const daysOverdue = penaltySummary.daysOverdue || 0;
 
     const summary = {
       totalFee:    netFee,
       totalPaid:   paidAmount,
-      totalDue:    dueAmount,
+      totalDue:    Math.max(0, netFee + penaltyAmount - (invoice.waivedAmount || 0) - paidAmount),
       grossFee,
       discountAmount,
       penaltyAmount,
@@ -245,7 +242,9 @@ class FeesService {
     }
     return FeeInvoice.findOne(query)
       .populate('feeProfileId')
+      .populate('studentId', 'name rollNo admissionNumber admissionNo registerNo parentName parentPhone classId sectionId')
       .populate('classId', 'name')
+      .populate('sectionId', 'name')
       .populate('academicYearId', 'name')
       .sort({ createdAt: -1 });
   }

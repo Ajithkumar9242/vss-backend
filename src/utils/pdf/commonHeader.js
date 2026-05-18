@@ -2,23 +2,23 @@
 
 /**
  * commonHeader.js
- * ─────────────────────────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Exports TWO header helpers for PDFKit documents:
  *
  *  1) drawSingleLogoHeader(doc, school, opts)
- *     — School logo only on the LEFT.
- *     — Used by: Fee Invoice, Fee Receipt, POS Invoice.
+ *     â€” School logo only on the LEFT.
+ *     â€” Used by: Fee Invoice, Fee Receipt, POS Invoice.
  *
  *  2) drawDualLogoHeaderExam(doc, school, opts)
- *     — School logo LEFT, VSS logo RIGHT.
- *     — Used by: Exam Marks / Results PDF only.
+ *     â€” School logo LEFT, VSS logo RIGHT.
+ *     â€” Used by: Exam Marks / Results PDF only.
  *
  * Both helpers:
  *  - Register Roboto fonts (safe to call repeatedly).
- *  - Draw a dark-navy band behind the header.
+ *  - Draw an orange band behind the header.
  *  - Centre school name / address / phone / email text.
  *  - Return the Y position after the header so callers can set doc.y.
- *  - Never crash if a logo fails to load — they just skip the image.
+ *  - Never crash if a logo fails to load â€” they just skip the image.
  */
 
 const path = require('path');
@@ -33,14 +33,14 @@ const FONT_REGULAR = path.join(__dirname, '..', 'Roboto-Regular.ttf');
 const FONT_BOLD    = path.join(__dirname, '..', 'Roboto-Bold.ttf');
 
 // Primary navy colour used across all PDFs
-const PRIMARY_RGB  = [27, 58, 92];   // #1B3A5C
+const PRIMARY_RGB  = [194, 65, 12];   // #C2410C — ERP orange brand
 const WHITE_RGB    = [255, 255, 255];
 const SLATE_RGB    = [203, 213, 225]; // slate-300, for sub-lines on dark band
 
 const BAND_H       = 95;             // fixed header band height (pts)
 const MARGIN       = 40;
 
-// ─── Shared internals ─────────────────────────────────────────
+// â”€â”€â”€ Shared internals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Safely register Roboto fonts (ignores "already registered" errors). */
 function registerFonts(doc) {
@@ -49,7 +49,7 @@ function registerFonts(doc) {
 }
 
 /**
- * Fetch a logo from a public URL → Buffer.
+ * Fetch a logo from a public URL â†’ Buffer.
  * Returns null on any failure (timeout, 4xx/5xx, network error).
  */
 async function fetchLogoBuffer(logoUrl) {
@@ -98,16 +98,16 @@ function loadCbseLogo() {
 function drawBandAndText(doc, school, startY, logoSize, hasRightLogo) {
   const pageWidth = doc.page.width;
 
-  // ── Background band ──────────────────────────────────────────
+  // â”€â”€ Background band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.save()
      .rect(0, startY - 5, pageWidth, BAND_H)
      .fill(PRIMARY_RGB);
   doc.restore();
 
-  // ── Text area calculation ────────────────────────────────────
+  // â”€â”€ Text area calculation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Left text starts after the school logo
   const textLeft  = MARGIN + logoSize + 8;
-  // Right text boundary — shrink inward if there's a right logo
+  // Right text boundary â€” shrink inward if there's a right logo
   const textRight = hasRightLogo
     ? (pageWidth - MARGIN - logoSize - 8)
     : (pageWidth - MARGIN - 8);
@@ -139,7 +139,7 @@ function drawBandAndText(doc, school, startY, logoSize, hasRightLogo) {
        .text(schoolEmail, textLeft, ty, { width: textWidth, align: 'center', lineBreak: false });
   }
 
-  // ── Divider ──────────────────────────────────────────────────
+  // â”€â”€ Divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const lineY = startY + BAND_H - 2;
   doc.moveTo(MARGIN, lineY).lineTo(pageWidth - MARGIN, lineY)
      .strokeColor(WHITE_RGB).lineWidth(0.5).stroke();
@@ -152,10 +152,10 @@ function placeImage(doc, buf, x, y, size) {
   if (!buf) return;
   try {
     doc.image(buf, x, y, { fit: [size, size], align: 'center', valign: 'center' });
-  } catch { /* corrupt / unsupported image — skip silently */ }
+  } catch { /* corrupt / unsupported image â€” skip silently */ }
 }
 
-// ─── PUBLIC API ───────────────────────────────────────────────
+// â”€â”€â”€ PUBLIC API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Draw a header with ONLY the school logo on the left.
@@ -221,7 +221,7 @@ async function drawDualLogoHeaderExam(doc, school, opts = {}) {
 }
 
 // Keep legacy alias so any stale require('.../commonHeader').drawDualLogoHeader
-// doesn't crash the process during a hot-reload — it will just behave like single.
+// doesn't crash the process during a hot-reload â€” it will just behave like single.
 const drawDualLogoHeader = drawSingleLogoHeader;
 
 module.exports = {

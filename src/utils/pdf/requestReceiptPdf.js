@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const path = require('path');
 const PDFDocument = require('pdfkit');
@@ -7,7 +7,7 @@ const FONT_REGULAR = path.join(__dirname, '..', 'Roboto-Regular.ttf');
 const FONT_BOLD    = path.join(__dirname, '..', 'Roboto-Bold.ttf');
 
 const COLORS = {
-  primary:   [27, 58, 92],
+  primary:   [194, 65, 12],
   text:      [15, 23, 42],
   gray:      [100, 116, 139],
   white:     [255, 255, 255],
@@ -16,7 +16,7 @@ const COLORS = {
 };
 
 function fmt(date) {
-  if (!date) return '—';
+  if (!date) return 'â€”';
   const d = new Date(date);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
@@ -47,28 +47,28 @@ async function generateRequestReceiptPdf(request, school) {
 
     const pageWidth = doc.page.width - 80;
 
-    // ── Header ───────────────────────────────────────────────
+    // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     doc.rect(40, 30, pageWidth, 55).fill(COLORS.primary);
     doc.fillColor(COLORS.white).font('Roboto-Bold').fontSize(13)
        .text(school?.schoolName || 'VMS School', 50, 38, { width: pageWidth });
     doc.font('Roboto').fontSize(8)
-       .text('PAYMENT RECEIPT — DOCUMENT REQUEST', 50, 56, { width: pageWidth });
+       .text('PAYMENT RECEIPT â€” DOCUMENT REQUEST', 50, 56, { width: pageWidth });
 
     doc.moveDown(3.5);
 
-    // ── Receipt Body ─────────────────────────────────────────
+    // â”€â”€ Receipt Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const bodyY = doc.y + 5;
     const rows = [
       ['Receipt #',     request.requestNumber || request._id?.toString()?.slice(-8)?.toUpperCase()],
-      ['Student',       request.studentId?.name || '—'],
-      ['Document',      request.catalogItemId?.name || '—'],
+      ['Student',       request.studentId?.name || 'â€”'],
+      ['Document',      request.catalogItemId?.name || 'â€”'],
       ['Copies',        String(request.copies || 1)],
       ['Amount',        inr(request.amount || 0)],
       ['Discount',      inr(request.discount || 0)],
       ['Net Amount',    inr(request.netAmount || 0)],
-      ['Payment Mode',  (request.paymentMode || '—').toUpperCase()],
-      ['Payment Status',request.paymentStatus?.toUpperCase() || '—'],
-      ['Request Status',request.requestStatus?.toUpperCase() || '—'],
+      ['Payment Mode',  (request.paymentMode || 'â€”').toUpperCase()],
+      ['Payment Status',request.paymentStatus?.toUpperCase() || 'â€”'],
+      ['Request Status',request.requestStatus?.toUpperCase() || 'â€”'],
       ['Date',          fmt(request.createdAt)],
     ];
 
@@ -84,7 +84,7 @@ async function generateRequestReceiptPdf(request, school) {
 
     const endY = bodyY + rows.length * 18 + 10;
 
-    // ── Footer ───────────────────────────────────────────────
+    // â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     doc.moveTo(40, endY).lineTo(40 + pageWidth, endY).strokeColor(COLORS.border).lineWidth(0.5).stroke();
     doc.fillColor(COLORS.gray).font('Roboto').fontSize(7)
        .text('This is a computer-generated receipt.', 40, endY + 6, { width: pageWidth, align: 'center' });

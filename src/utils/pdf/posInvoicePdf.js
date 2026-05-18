@@ -1,16 +1,16 @@
-'use strict';
+﻿'use strict';
 
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const { drawSingleLogoHeader } = require('./commonHeader');
 
-// Roboto fonts — same as existing pdfService.js
+// Roboto fonts â€” same as existing pdfService.js
 const FONT_REGULAR = path.join(__dirname, '..', 'Roboto-Regular.ttf');
 const FONT_BOLD    = path.join(__dirname, '..', 'Roboto-Bold.ttf');
 
 const COLORS = {
-  primary:   [27, 58, 92],
-  accent:    [37, 99, 235],
+  primary:   [194, 65, 12],
+  accent:    [194, 65, 12],
   text:      [15, 23, 42],
   gray:      [100, 116, 139],
   lightGray: [241, 245, 249],
@@ -20,7 +20,7 @@ const COLORS = {
 };
 
 function fmt(date) {
-  if (!date) return '—';
+  if (!date) return 'â€”';
   const d = new Date(date);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const day  = String(d.getDate()).padStart(2, '0');
@@ -58,7 +58,7 @@ async function generatePosInvoicePdf(invoice, school) {
 
     const pageWidth = doc.page.width - 100; // margins
 
-    // ── Dual-logo header (shared helper) ─────────────────────
+    // â”€â”€ Dual-logo header (shared helper) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let yAfterHeader;
     try {
       yAfterHeader = await drawSingleLogoHeader(doc, school, { startY: 20 });
@@ -66,15 +66,15 @@ async function generatePosInvoicePdf(invoice, school) {
       yAfterHeader = 115;
     }
 
-    // "INVOICE" label — right aligned inside header band area
+    // "INVOICE" label â€” right aligned inside header band area
     doc.fillColor([253, 224, 71]).font('Roboto-Bold').fontSize(14)
        .text('INVOICE', 400, 55, { width: 140, align: 'right' });
     doc.fillColor([203, 213, 225]).font('Roboto').fontSize(8)
-       .text(invoice.invoiceNumber || '—', 400, 72, { width: 140, align: 'right' });
+       .text(invoice.invoiceNumber || 'â€”', 400, 72, { width: 140, align: 'right' });
 
     doc.y = yAfterHeader + 10;
 
-    // ── Invoice Meta ─────────────────────────────────────────
+    // â”€â”€ Invoice Meta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const metaY = doc.y;
     doc.fillColor(COLORS.text).font('Roboto-Bold').fontSize(9)
        .text('Invoice #:', 50, metaY)
@@ -82,7 +82,7 @@ async function generatePosInvoicePdf(invoice, school) {
        .text('Payment Mode:', 50, metaY + 28);
 
     doc.font('Roboto').fontSize(9)
-       .text(invoice.invoiceNumber || '—', 135, metaY)
+       .text(invoice.invoiceNumber || 'â€”', 135, metaY)
        .text(fmt(invoice.createdAt), 135, metaY + 14)
        .text((invoice.paymentMode || '').toUpperCase(), 135, metaY + 28);
 
@@ -94,13 +94,13 @@ async function generatePosInvoicePdf(invoice, school) {
          .text('Class:', 350, metaY + 28);
       doc.font('Roboto').fontSize(9)
          .text(invoice.studentSnapshot.name, 410, metaY, { width: 130 })
-         .text(invoice.studentSnapshot.rollNo || '—', 410, metaY + 14)
-         .text(invoice.studentSnapshot.className || '—', 410, metaY + 28);
+         .text(invoice.studentSnapshot.rollNo || 'â€”', 410, metaY + 14)
+         .text(invoice.studentSnapshot.className || 'â€”', 410, metaY + 28);
     }
 
     doc.moveDown(3);
 
-    // ── Line items table ──────────────────────────────────────
+    // â”€â”€ Line items table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const tableY = doc.y;
     const cols = [30, 200, 50, 70, 60, 50, 80];
     const headers = ['#', 'Item', 'Qty', 'Unit (Rs.)', 'Disc (Rs.)', 'Tax%', 'Amount (Rs.)'];
@@ -141,7 +141,7 @@ async function generatePosInvoicePdf(invoice, school) {
 
     rowY += 8;
 
-    // ── Totals block ─────────────────────────────────────────
+    // â”€â”€ Totals block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const totalsX = 380;
     const totals = [
       ['Subtotal',     inr(invoice.subtotal)],
@@ -173,7 +173,7 @@ async function generatePosInvoicePdf(invoice, school) {
       rowY += 14;
     }
 
-    // ── Footer / Signature ───────────────────────────────────
+    // â”€â”€ Footer / Signature â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const footerY = doc.page.height - 100;
     doc.moveTo(50, footerY).lineTo(545, footerY).strokeColor(COLORS.border).lineWidth(0.5).stroke();
     doc.fillColor(COLORS.gray).font('Roboto').fontSize(7.5)

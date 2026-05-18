@@ -37,6 +37,19 @@ class StudentController {
   }
 
   /**
+   * GET /api/students/:id/profile
+   * Get an aggregate student profile including admission, attendance, and fees.
+   */
+  static async getProfile(req, res, next) {
+    try {
+      const profile = await StudentService.getStudentProfile(req.params.id);
+      return ApiResponse.success(res, profile, 'Student profile retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/students
    * Directly create a student (admin flow, no admission).
    */

@@ -224,7 +224,7 @@ class AdmissionService {
     }
 
     // 4. Generate roll number for the new student
-    const rollNo = await AdmissionService.generateRollNo(admission.classId);
+    const rollNo = admission.rollNo || await AdmissionService.generateRollNo(admission.classId);
 
     // 4a. Resolve academic year from admission (fallback to active)
     const SetupService = require('../setup/service');
@@ -232,14 +232,16 @@ class AdmissionService {
       || (await SetupService.resolveAcademicYearId(null));
 
     // 4b. Generate admission number atomically (only consumed on successful approval)
-    let admissionNumber = null;
-    try {
-      const CounterService = require('../../utils/counterService');
-      const yearLabel = CounterService.getAcademicYearLabel();
-      const result = await CounterService.getNext('admissionNumber', { yearLabel, padLength: 3, startFrom: 1 });
-      admissionNumber = result.formatted; // e.g. "001/2026-27"
-    } catch (e) {
-      console.error('Admission number generation failed (non-critical):', e.message);
+    let admissionNumber = admission.admissionNo;
+    if (!admissionNumber) {
+      try {
+        const CounterService = require('../../utils/counterService');
+        const yearLabel = CounterService.getAcademicYearLabel();
+        const result = await CounterService.getNext('admissionNumber', { yearLabel, padLength: 3, startFrom: 1 });
+        admissionNumber = result.formatted; // e.g. "001/2026-27"
+      } catch (e) {
+        console.error('Admission number generation failed (non-critical):', e.message);
+      }
     }
 
 
@@ -471,10 +473,16 @@ class AdmissionService {
    * @param {Object} data - fields to update
    * @param {string} userId - who is editing
    */
-  static async updateAdmission(admissionId, data, userId) {
+  static async updateAdmission(admissionId, data, user) {
+    const userId = user._id || user.id;
+    const role = (user.role || '').toLowerCase();
+    const isSuperAdmin = role === 'super_admin';
+
     const admission = await Admission.findById(admissionId);
     if (!admission) throw new AppError('Admission not found', 404);
-    if (admission.status === 'approved') throw new AppError('Approved admissions cannot be edited directly', 400);
+    if (admission.status === 'approved' && !isSuperAdmin) {
+      throw new AppError('Approved admissions cannot be edited directly', 400);
+    }
 
     // Capture a lightweight change summary for audit
     const changedFields = Object.keys(data).filter(k => String(data[k]) !== String(admission[k]));

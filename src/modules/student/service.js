@@ -71,6 +71,118 @@ class StudentService {
 
     return student;
   }
+
+  /**
+   * Get an aggregate student profile including admission, attendance, fees, and exams.
+   * Returns the stable shape consumed by the Student Profile drawer.
+   * @param {string} studentId
+   */
+  static async getStudentProfile(studentId) {
+    const student = await Student.findById(studentId)
+      .populate('classId', 'name code')
+      .populate('sectionId', 'name capacity')
+      .populate('academicYearId', 'name startDate endDate')
+      .lean();
+
+    if (!student) {
+      throw new AppError('Student not found', 404);
+    }
+
+    // ─── Admission ──────────────────────────────────────────────
+    let admission = null;
+    if (student.admissionId) {
+      const Admission = mongoose.model('Admission');
+      admission = await Admission.findById(student.admissionId).lean();
+    }
+
+    // ─── Attendance ─────────────────────────────────────────────
+    let attendance = { summary: { totalConducted: 0, totalAttended: 0, percentage: 0 }, monthly: [] };
+    try {
+      const AttendanceService = require('../attendance/service');
+      const monthlyReport = await AttendanceService.getMonthlyStudentReport(student._id);
+      if (monthlyReport) {
+        const pct = monthlyReport.totalConducted > 0
+          ? Math.round((monthlyReport.totalAttended / monthlyReport.totalConducted) * 1000) / 10
+          : 0;
+        attendance = {
+          summary: {
+            totalConducted: monthlyReport.totalConducted || 0,
+            totalAttended: monthlyReport.totalAttended || 0,
+            totalAbsent: Math.max(0, (monthlyReport.totalConducted || 0) - (monthlyReport.totalAttended || 0)),
+            percentage: pct,
+          },
+          monthly: monthlyReport.monthWise || [],
+        };
+      }
+    } catch (e) {
+      console.warn('[Profile] attendance fetch failed:', e.message);
+    }
+
+    // ─── Fees (full invoice shape, same as parent portal) ────────
+    let fees = { summary: null, invoice: null, installments: [], payments: [] };
+    try {
+      const FeesService = require('../fees/service');
+      const feeData = await FeesService.getInvoice(student._id, student.academicYearId?._id || student.academicYearId);
+      if (feeData) {
+        fees = {
+          summary: feeData.summary || null,
+          invoice: feeData.invoice ? {
+            _id: feeData.invoice._id,
+            invoiceNumber: feeData.invoice.invoiceNumber,
+            status: feeData.invoice.status,
+            grossFee: feeData.invoice.grossFee,
+            netFee: feeData.invoice.netFee,
+            discountAmount: feeData.invoice.discountAmount,
+            penaltyAmount: feeData.invoice.penaltyAmount,
+            paidAmount: feeData.invoice.paidAmount,
+            dueAmount: feeData.invoice.dueAmount,
+            nextDueDate: feeData.invoice.nextDueDate,
+            locked: feeData.invoice.locked,
+          } : null,
+          installments: feeData.invoice?.installments || [],
+          payments: (feeData.payments || []).map(p => ({
+            _id: p._id,
+            receiptNumber: p.receiptNumber,
+            amount: p.amount,
+            paymentMode: p.paymentMode,
+            paidAt: p.paidAt,
+            transactionId: p.transactionId || null,
+            installmentNo: p.installmentNo || null,
+          })),
+        };
+      }
+    } catch (e) {
+      console.warn('[Profile] fees fetch failed:', e.message);
+    }
+
+    // ─── Exams ────────────────────────────────────────────────────
+    let exams = { results: [], marksCard: null };
+    try {
+      const ExamService = require('../exam/service');
+      const examData = await ExamService.getStudentResults(student._id.toString());
+      const results = examData?.results || [];
+      exams = {
+        results,
+        marksCard: results.length > 0 ? {
+          examCount: results.length,
+          overall: (() => {
+            const total = results.reduce((s, r) => s + (r.totalMax || 0), 0);
+            const obtained = results.reduce((s, r) => s + (r.totalObtained || 0), 0);
+            return {
+              totalObtained: obtained,
+              totalMax: total,
+              percentage: total > 0 ? Math.round((obtained / total) * 1000) / 10 : 0,
+            };
+          })(),
+        } : null,
+      };
+    } catch (e) {
+      console.warn('[Profile] exams fetch failed:', e.message);
+    }
+
+    return { student, admission, attendance, fees, exams };
+  }
+
   /**
    * Directly create a student (admin flow — no admission required).
    * @param {Object} data - student data

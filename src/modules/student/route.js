@@ -35,6 +35,12 @@ router.get(
 );
 
 /**
+ * GET /api/students/:id/profile
+ * Get aggregate profile: student, admission, attendance summary, fee summary
+ */
+router.get('/:id/profile', authorize(...READONLY_ROLES), mongoIdParam('id'), validate, StudentController.getProfile);
+
+/**
  * GET /api/students/:id
  * Same read-access as above.
  */

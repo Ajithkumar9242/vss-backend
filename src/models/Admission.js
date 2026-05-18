@@ -7,6 +7,12 @@ const admissionSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
+    // Meta / Office Use mapped directly
+    applicationFormNo: { type: String, trim: true },
+    admissionNo: { type: String, trim: true },
+    rollNo: { type: String, trim: true },
+    admissionDate: { type: Date },
+
     studentName: {
       type: String,
       required: [true, 'Student name is required'],
@@ -105,6 +111,8 @@ const admissionSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    senType: { type: String, trim: true },
+    senSupportLevel: { type: String, enum: ['Mild', 'Moderate', 'Intensive', ''], default: '' },
 
     // ─── Payment (Razorpay) ─────────────────────────────────
     paymentStatus: {
@@ -141,6 +149,22 @@ const admissionSchema = new mongoose.Schema(
         publicId: { type: String },
       },
     ],
+    documentChecklist: {
+      birthCertificate: { type: Boolean, default: false },
+      aadhaarStudent: { type: Boolean, default: false },
+      aadhaarParents: { type: Boolean, default: false },
+      previousReportCard: { type: Boolean, default: false },
+      tc: { type: Boolean, default: false },
+      casteCertificate: { type: Boolean, default: false },
+      photosCount: { type: Number, default: 0 },
+    },
+    officeUse: {
+      feeReceiptNo: { type: String, trim: true },
+      receiptDate: { type: Date },
+      documentsVerifiedBy: { type: String, trim: true },
+      documentsVerifiedDate: { type: Date },
+      principalRemarks: { type: String, trim: true },
+    },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

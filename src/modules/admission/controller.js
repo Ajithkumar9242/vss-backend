@@ -87,7 +87,7 @@ class AdmissionController {
   static async update(req, res, next) {
     try {
       const admission = await AdmissionService.updateAdmission(
-        req.params.id, req.body, req.user._id
+        req.params.id, req.body, req.user
       );
       return ApiResponse.success(res, admission, 'Admission updated');
     } catch (e) { next(e); }

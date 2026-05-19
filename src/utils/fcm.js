@@ -3,20 +3,68 @@ const User = require('../models/User');
 let firebaseAdmin = null;
 let firebaseReady = false;
 
+const buildServiceAccount = () => {
+  // Option 1: full JSON env (optional fallback)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    try {
+      return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    } catch (error) {
+      console.warn('[FCM] Invalid FIREBASE_SERVICE_ACCOUNT_JSON:', error.message);
+      return null;
+    }
+  }
+
+  // Option 2: split env vars (your current setup)
+  const {
+    FIREBASE_PROJECT_ID,
+    FIREBASE_PRIVATE_KEY_ID,
+    FIREBASE_PRIVATE_KEY,
+    FIREBASE_CLIENT_EMAIL,
+    FIREBASE_CLIENT_ID,
+    FIREBASE_AUTH_URI,
+    FIREBASE_TOKEN_URI,
+    FIREBASE_AUTH_PROVIDER_CERT_URL,
+    FIREBASE_CLIENT_CERT_URL,
+  } = process.env;
+
+  if (!FIREBASE_PROJECT_ID || !FIREBASE_PRIVATE_KEY || !FIREBASE_CLIENT_EMAIL) {
+    return null;
+  }
+
+  return {
+    type: 'service_account',
+    project_id: FIREBASE_PROJECT_ID,
+    private_key_id: FIREBASE_PRIVATE_KEY_ID || undefined,
+    private_key: FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    client_email: FIREBASE_CLIENT_EMAIL,
+    client_id: FIREBASE_CLIENT_ID || undefined,
+    auth_uri: FIREBASE_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: FIREBASE_TOKEN_URI || 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url:
+      FIREBASE_AUTH_PROVIDER_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url:
+      FIREBASE_CLIENT_CERT_URL ||
+      `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(FIREBASE_CLIENT_EMAIL)}`,
+  };
+};
+
 const initFirebaseAdmin = () => {
   if (firebaseReady) return firebaseAdmin;
   firebaseReady = true;
 
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) return null;
-
   try {
-    // Optional runtime dependency. Push delivery is skipped cleanly when it is not installed.
-    // Install firebase-admin and set FIREBASE_SERVICE_ACCOUNT_JSON to enable real FCM sends.
+    const serviceAccount = buildServiceAccount();
+    if (!serviceAccount) return null;
+
+    // Optional runtime dependency. Push delivery is skipped cleanly when firebase-admin is not installed.
     const admin = require('firebase-admin');
+
     if (!admin.apps.length) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
     }
+
     firebaseAdmin = admin;
     return firebaseAdmin;
   } catch (error) {
@@ -42,8 +90,12 @@ const sendToUser = async (userId, { title, body, url = '/', data = {} }) => {
       await admin.messaging().send({
         token,
         notification: { title, body },
-        data: Object.fromEntries(Object.entries({ url, ...data }).map(([k, v]) => [k, String(v ?? '')])),
-        webpush: { fcmOptions: { link: url } },
+        data: Object.fromEntries(
+          Object.entries({ url, ...data }).map(([k, v]) => [k, String(v ?? '')])
+        ),
+        webpush: {
+          fcmOptions: { link: url },
+        },
       });
       sent += 1;
     } catch (error) {
@@ -60,7 +112,9 @@ const sendToUser = async (userId, { title, body, url = '/', data = {} }) => {
   }
 
   if (invalidTokens.length) {
-    await User.findByIdAndUpdate(userId, { $pull: { fcmTokens: { $in: invalidTokens } } });
+    await User.findByIdAndUpdate(userId, {
+      $pull: { fcmTokens: { $in: invalidTokens } },
+    });
   }
 
   return { sent, failed };
@@ -68,11 +122,14 @@ const sendToUser = async (userId, { title, body, url = '/', data = {} }) => {
 
 const sendToUsers = async (userIds, payload) => {
   const results = await Promise.all((userIds || []).map((id) => sendToUser(id, payload)));
-  return results.reduce((acc, item) => ({
-    sent: acc.sent + (item.sent || 0),
-    failed: acc.failed + (item.failed || 0),
-    skipped: acc.skipped && item.skipped,
-  }), { sent: 0, failed: 0, skipped: true });
+  return results.reduce(
+    (acc, item) => ({
+      sent: acc.sent + (item.sent || 0),
+      failed: acc.failed + (item.failed || 0),
+      skipped: acc.skipped && item.skipped,
+    }),
+    { sent: 0, failed: 0, skipped: true }
+  );
 };
 
-module.exports = { sendToUser, sendToUsers };
+module.exports = { sendToUser, sendToUsers, initFirebaseAdmin };

@@ -122,35 +122,58 @@ class StudentService {
     let fees = { summary: null, invoice: null, installments: [], payments: [] };
     try {
       const FeesService = require('../fees/service');
-      const feeData = await FeesService.getInvoice(student._id, student.academicYearId?._id || student.academicYearId);
+      const SetupService = require('../setup/service');
+      const FeePayment = require('../../models/FeePayment');
+
+      let academicYearId = student.academicYearId?._id || student.academicYearId;
+      if (!academicYearId) {
+        academicYearId = await SetupService.resolveAcademicYearId(null);
+      }
+
+      const feeData = await FeesService.getInvoice(student._id, academicYearId);
+
       if (feeData) {
+        const isShapeA = feeData.invoice !== undefined;
+        const inv = isShapeA ? feeData.invoice : feeData;
+
+        let payments = [];
+        if (isShapeA && feeData.payments) {
+          payments = feeData.payments;
+        } else if (inv && inv._id) {
+          payments = await FeePayment.find({ invoiceId: inv._id }).sort({ paidAt: -1 }).lean();
+        }
+
+        const summary = isShapeA && feeData.summary ? feeData.summary : (inv ? {
+          totalFee: inv.netFee || 0,
+          totalPaid: inv.paidAmount || 0,
+          totalDue: inv.dueAmount || 0,
+          grossFee: inv.grossFee || 0,
+          discountAmount: inv.discountAmount || 0,
+          penaltyAmount: inv.penaltyAmount || 0,
+          status: ({ paid: 'Paid', partial: 'Partial', overdue: 'Overdue' })[inv.status] || 'Unpaid',
+          nextDueDate: inv.nextDueDate || null,
+        } : null);
+
         fees = {
-          summary: feeData.summary || null,
-          invoice: feeData.invoice ? {
-            _id: feeData.invoice._id,
-            invoiceNumber: feeData.invoice.invoiceNumber,
-            status: feeData.invoice.status,
-            grossFee: feeData.invoice.grossFee,
-            netFee: feeData.invoice.netFee,
-            discountAmount: feeData.invoice.discountAmount,
-            penaltyAmount: feeData.invoice.penaltyAmount,
-            paidAmount: feeData.invoice.paidAmount,
-            dueAmount: feeData.invoice.dueAmount,
-            nextDueDate: feeData.invoice.nextDueDate,
-            locked: feeData.invoice.locked,
+          summary,
+          invoice: inv ? {
+            _id: inv._id,
+            invoiceNumber: inv.invoiceNumber,
+            status: inv.status,
+            grossFee: inv.grossFee,
+            netFee: inv.netFee,
+            discountAmount: inv.discountAmount,
+            penaltyAmount: inv.penaltyAmount,
+            paidAmount: inv.paidAmount,
+            dueAmount: inv.dueAmount,
+            nextDueDate: inv.nextDueDate,
+            locked: inv.locked,
           } : null,
-          installments: feeData.invoice?.installments || [],
-          payments: (feeData.payments || []).map(p => ({
-            _id: p._id,
-            receiptNumber: p.receiptNumber,
-            amount: p.amount,
-            paymentMode: p.paymentMode,
-            paidAt: p.paidAt,
-            transactionId: p.transactionId || null,
-            installmentNo: p.installmentNo || null,
-          })),
+          installments: inv?.installments || [],
+          payments: payments || [],
         };
       }
+      console.log('[Profile Fees]', { studentId: student._id, year: academicYearId, hasInvoice: !!fees.invoice, payments: fees.payments.length });
     } catch (e) {
       console.warn('[Profile] fees fetch failed:', e.message);
     }

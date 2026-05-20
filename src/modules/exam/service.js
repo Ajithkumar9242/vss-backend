@@ -554,147 +554,15 @@ class ExamService {
    * @param {string} examId
    * @param {object} res — Express response object (we pipe directly)
    */
-  static async generateResultsPdf(examId, res) {
-    const PDFDocument = require('pdfkit');
-    const { drawDualLogoHeaderExam } = require('../../utils/pdf/commonHeader');
-    const path = require('path');
-
-    // ── Register Roboto fonts ────────────────────────────────
-    const FONT_REGULAR = path.join(__dirname, '../../utils/Roboto-Regular.ttf');
-    const FONT_BOLD    = path.join(__dirname, '../../utils/Roboto-Bold.ttf');
-
-    // Load full results data
-    const resultData = await ExamService.getExamResults(examId);
-    const { exam, stats, students } = resultData;
-
-    // Load school settings for dual-logo header
-    let school = { schoolName: 'VMS School' };
-    try {
-      const SchoolSetting = require('../../models/SchoolSetting');
-      const setting = await SchoolSetting.findOne().lean();
-      if (setting) school = setting;
-    } catch { /* use default */ }
-
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
-
-    try {
-      doc.registerFont('Roboto',      FONT_REGULAR);
-      doc.registerFont('Roboto-Bold', FONT_BOLD);
-    } catch { /* fonts may already be registered */ }
-
-    // Stream headers
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="results_${(exam.examName || exam.name || 'exam').replace(/\s+/g, '_')}.pdf"`
-    );
-    doc.pipe(res);
-
-    // ── Colors ──────────────────────────────────────────────
-    const BLUE     = '#1677ff';
-    const DARK     = '#1e293b';
-    const GRAY     = '#64748b';
-    const LIGHT_BG = '#f8fafc';
-    const GREEN    = '#16a34a';
-    const RED      = '#dc2626';
-
-    // ── Dual-Logo Header ─────────────────────────────────────
-    let yAfter = 95;
-    try {
-      yAfter = await drawDualLogoHeaderExam(doc, school, { startY: 20 });
-    } catch { yAfter = 95; }
-    doc.y = yAfter;
-
-    // ── Exam Info box ────────────────────────────────────────
-    const infoY = yAfter + 4;
-    doc.rect(30, infoY, doc.page.width - 60, 60).fill(LIGHT_BG).stroke('#e2e8f0');
-    doc.fill(DARK).fontSize(14).font('Roboto-Bold')
-      .text(exam.examName || exam.name, 40, infoY + 8, { width: doc.page.width - 80 });
-    doc.fill(GRAY).fontSize(10).font('Roboto')
-      .text(
-        [
-          `Class: ${exam.classId?.name || '—'}`,
-          exam.startDate ? `Date: ${new Date(exam.startDate).toLocaleDateString('en-IN')}` : '',
-          `Max Marks: ${exam.maxMarks}`,
-          `Passing: ${exam.passingMarks}`,
-        ].filter(Boolean).join('  |  '),
-        40, infoY + 30
-      );
-
-    // ── Stats row ────────────────────────────────────────────
-    const statsY = infoY + 75;
-    const statCols = [
-      { label: 'Total Students', value: String(stats.totalStudents) },
-      { label: 'Passed',         value: `${stats.passed} (${stats.passPercentage}%)`, color: GREEN },
-      { label: 'Failed',         value: String(stats.failed), color: RED },
-      { label: 'Average',        value: `${stats.averagePercentage}%` },
-      { label: 'Topper',         value: stats.topper ? `${stats.topper.name} (${stats.topper.percentage}%)` : '—' },
-    ];
-    const colW = (doc.page.width - 60) / statCols.length;
-    statCols.forEach((s, i) => {
-      const x = 30 + i * colW;
-      doc.rect(x, statsY, colW, 44).fill(i % 2 === 0 ? '#ffffff' : LIGHT_BG).stroke('#e2e8f0');
-      doc.fill(GRAY).fontSize(8).font('Roboto').text(s.label, x + 6, statsY + 6, { width: colW - 12 });
-      doc.fill(s.color || DARK).fontSize(11).font('Roboto-Bold').text(s.value, x + 6, statsY + 22, { width: colW - 12 });
+  static async generateMarksCardPdf(studentId, res, opts = {}) {
+    const { generateMarksCardPdf } = require('../../utils/pdf/marksCardPdf');
+    await generateMarksCardPdf({
+      res,
+      studentId,
+      academicYearId: opts.academicYearId || null,
+      term: opts.term || null,
+      examId: opts.examId || null,
     });
-
-    // ── Results table ────────────────────────────────────────
-    const tableTop = statsY + 60;
-    const headers = ['#', 'Rank', 'Adm No', 'Reg No', 'Student Name', 'Total', '%', 'Grade', 'Result'];
-    const colWidths = [22, 34, 58, 58, 125, 58, 42, 44, 54];
-    let x = 30;
-
-    // Table header
-    doc.rect(30, tableTop, doc.page.width - 60, 20).fill(BLUE);
-    headers.forEach((h, i) => {
-      doc.fill('#ffffff').fontSize(9).font('Roboto-Bold').text(h, x + 3, tableTop + 5, { width: colWidths[i] - 6 });
-      x += colWidths[i];
-    });
-
-    // Table rows
-    let rowY = tableTop + 20;
-    students.forEach((r, idx) => {
-      const rowH = 18;
-      if (rowY + rowH > doc.page.height - 60) {
-        doc.addPage();
-        rowY = 40;
-      }
-      const bg = idx % 2 === 0 ? '#ffffff' : LIGHT_BG;
-      doc.rect(30, rowY, doc.page.width - 60, rowH).fill(bg).stroke('#e2e8f0');
-
-      const cells = [
-        String(idx + 1),
-        r.rank ? `#${r.rank}` : '—',
-        r.student?.admissionNo || r.student?.admissionNumber || '—',
-        r.student?.registerNo || r.student?.rollNo || '—',
-        r.student?.name || '—',
-        r.result === 'Absent' ? 'Absent' : `${r.totalObtained}/${r.totalMax}`,
-        r.result === 'Absent' ? '—' : `${r.percentage}%`,
-        r.grade || '—',
-        r.result,
-      ];
-      const resultColor = r.result === 'Pass' ? GREEN : r.result === 'Fail' ? RED : GRAY;
-
-      x = 30;
-      cells.forEach((cell, ci) => {
-        const color = ci === 8 ? resultColor : DARK;
-        doc.fill(color).fontSize(8).font(ci === 8 ? 'Roboto-Bold' : 'Roboto')
-          .text(cell, x + 3, rowY + 4, { width: colWidths[ci] - 6, lineBreak: false });
-        x += colWidths[ci];
-      });
-      rowY += rowH;
-    });
-
-    // ── Footer ───────────────────────────────────────────────
-    doc.moveDown(2);
-    doc.fill(GRAY).fontSize(8).font('Roboto')
-      .text(
-        `Generated by ${school.schoolName || 'VMS School'} ERP  |  ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`,
-        30, doc.page.height - 40,
-        { align: 'center', width: doc.page.width - 60 }
-      );
-
-    doc.end();
   }
 }
 

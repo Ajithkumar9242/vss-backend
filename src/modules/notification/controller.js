@@ -63,14 +63,10 @@ class NotificationController {
       const user = await User.findById(req.user._id);
       if (!user) throw new AppError('User not found', 404);
 
-      // Store as array; dedupe
-      if (!user.fcmTokens) user.fcmTokens = [];
-      if (!user.fcmTokens.includes(token)) {
-        user.fcmTokens.push(token);
-        // Keep last 5 tokens only
-        if (user.fcmTokens.length > 5) user.fcmTokens = user.fcmTokens.slice(-5);
-        await user.save();
-      }
+      user.fcmTokens = [...(user.fcmTokens || []).filter((item) => item !== token), token].slice(-5);
+      await user.save();
+
+      console.log(`[Notifications] Device token saved for user ${user._id} (${platform || 'web'}): ${user.fcmTokens.length} token(s)`);
 
       return ApiResponse.success(res, { registered: true }, 'Device token saved');
     } catch (error) {
@@ -81,24 +77,43 @@ class NotificationController {
   /** Admin-only: send a push test to a user */
   static async sendTestNotification(req, res, next) {
     try {
-      const { userId, title, body, url } = req.body;
-      if (!userId || !title || !body) throw new AppError('userId, title and body are required', 400);
+      const { userId, title, body, message, url } = req.body;
+      const targetUserId = userId || req.user._id;
+      const notificationTitle = title || 'VMS School ERP test';
+      const notificationBody = body || message || 'Push notifications are working.';
+      const canTargetOtherUsers = ['super_admin', 'admin', 'principal'].includes(req.user.role);
+      if (userId && userId.toString() !== req.user._id.toString() && !canTargetOtherUsers) {
+        throw new AppError('You can only send a test notification to yourself.', 403);
+      }
 
-      const targetUser = await User.findById(userId);
+      console.log(`[Notifications] Test notification requested by ${req.user._id} for ${targetUserId}`);
+
+      const targetUser = await User.findById(targetUserId);
       if (!targetUser) throw new AppError('Target user not found', 404);
 
       const tokens = targetUser.fcmTokens || [];
-      if (!tokens.length) {
-        return ApiResponse.success(res, { sent: 0, reason: 'No device tokens for this user' }, 'No tokens');
-      }
-
       const FcmService = require('../../utils/fcm');
-      const pushResult = await FcmService.sendToUser(userId, { title, body, url });
+      const notification = await NotificationService.create(targetUserId, {
+        title: notificationTitle,
+        message: notificationBody,
+        type: 'info',
+        metadata: { url: url || '/', module: 'notification-test' },
+        skipPush: true,
+      });
+      const pushResult = await FcmService.sendToUser(targetUserId, {
+        title: notificationTitle,
+        body: notificationBody,
+        url: url || '/',
+        data: { notificationId: notification._id, type: 'info' },
+      });
 
-      // Also create an in-app notification
-      await NotificationService.create(userId, { title, message: body, type: 'info', skipPush: true });
-
-      return ApiResponse.success(res, { sent: pushResult.sent || 0, tokens: tokens.length }, 'Test notification sent');
+      return ApiResponse.success(res, {
+        sent: pushResult.sent || 0,
+        failed: pushResult.failed || 0,
+        skipped: !!pushResult.skipped,
+        tokens: tokens.length,
+        notificationId: notification._id,
+      }, 'Test notification sent');
     } catch (error) {
       next(error);
     }

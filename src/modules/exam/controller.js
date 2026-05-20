@@ -96,12 +96,17 @@ class ExamController {
 
   // ── PDF ───────────────────────────────────────────────────
 
-  static async getResultsPdf(req, res, next) {
+  static async getMarksCardPdf(req, res, next) {
     try {
-      // generateResultsPdf streams directly — do NOT call ApiResponse
-      await ExamService.generateResultsPdf(req.params.examId, res);
+      const { academicYearId, term, examId } = req.query;
+      await ExamService.generateMarksCardPdf(req.params.studentId, res, {
+        academicYearId: academicYearId || null,
+        term: term || null,
+        examId: examId || null,
+      });
     } catch (e) { next(e); }
   }
+
 }
 
 module.exports = ExamController;

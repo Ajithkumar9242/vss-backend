@@ -13,6 +13,12 @@ router.patch('/:id/read', mongoIdParam('id'), validate, NotificationController.m
 // ─── FCM Device Token ────────────────────────────────────────
 router.post('/device-token', NotificationController.saveDeviceToken);
 
+router.post(
+  '/test',
+  authorize('super_admin', 'admin', 'principal', 'faculty', 'parent'),
+  NotificationController.sendTestNotification
+);
+
 // ─── Broadcast (admin only) ──────────────────────────────────
 router.post(
   '/broadcast',

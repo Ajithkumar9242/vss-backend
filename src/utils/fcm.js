@@ -74,6 +74,8 @@ const initFirebaseAdmin = () => {
 };
 
 const sendToUser = async (userId, { title, body, url = '/', data = {} }) => {
+  console.log(`[FCM] sendToUser called for ${userId}`);
+
   const admin = initFirebaseAdmin();
   if (!admin) return { sent: 0, failed: 0, skipped: true };
 

@@ -318,6 +318,13 @@ class AttendanceService {
       },
       { upsert: true, new: true, runValidators: true }
     );
+
+    await AttendanceService._notifyMonthlyAttendanceSaved({
+      rows,
+      monthKey,
+      totalClassesConducted,
+    });
+
     return doc;
   }
 
@@ -432,7 +439,53 @@ class AttendanceService {
       monthWise,
     };
   }
+
+  static async _notifyMonthlyAttendanceSaved({ rows, monthKey, totalClassesConducted }) {
+    try {
+      const studentIds = [...new Set((rows || []).map((row) => row.studentId?.toString()).filter(Boolean))];
+      if (!studentIds.length) return;
+
+      const Parent = require('../../models/Parent');
+      const NotificationService = require('../notification/service');
+      const students = await Student.find({ _id: { $in: studentIds }, parentId: { $ne: null } })
+        .select('name parentId')
+        .lean();
+      const parentIds = [...new Set(students.map((student) => student.parentId?.toString()).filter(Boolean))];
+      if (!parentIds.length) return;
+
+      const parents = await Parent.find({ _id: { $in: parentIds }, userId: { $ne: null } })
+        .select('userId')
+        .lean();
+      const userIdsByParentId = new Map(parents.map((parent) => [parent._id.toString(), parent.userId]));
+
+      const notifications = students
+        .map((student) => {
+          const parentUserId = userIdsByParentId.get(student.parentId?.toString());
+          if (!parentUserId) return null;
+
+          return NotificationService.create(parentUserId, {
+            title: 'Monthly Attendance Updated',
+            message: `${student.name}'s attendance for ${monthKey} has been updated.`,
+            type: 'info',
+            metadata: {
+              module: 'attendance',
+              studentId: student._id,
+              monthKey,
+              totalClassesConducted,
+              url: '/parent/attendance',
+            },
+          });
+        })
+        .filter(Boolean);
+
+      if (!notifications.length) return;
+      const results = await Promise.allSettled(notifications);
+      const sent = results.filter((item) => item.status === 'fulfilled').length;
+      console.log(`[Attendance] Monthly attendance notifications created: ${sent}/${notifications.length}`);
+    } catch (error) {
+      console.error('[Attendance] Monthly attendance notification failed:', error.message);
+    }
+  }
 }
 
 module.exports = AttendanceService;
-

@@ -22,6 +22,18 @@ router.get(
 
 // ── Student results — must be BEFORE /:id ─────────────────
 router.get('/results/:studentId', reader, mongoIdParam('studentId'), validate, C.getStudentResults);
+router.get(
+  '/marks-card/:studentId',
+  reader,
+  [
+    mongoIdParam('studentId'),
+    query('academicYearId').optional({ values: 'falsy' }).isMongoId(),
+    query('examId').optional({ values: 'falsy' }).isMongoId(),
+    query('term').optional({ values: 'falsy' }).isIn(['term1', 'term2']),
+  ],
+  validate,
+  C.getMarksCardPdf
+);
 
 // ── EXAM CRUD ─────────────────────────────────────────────
 router.post(
@@ -97,6 +109,4 @@ router.get('/:examId/marks', mongoIdParam('examId'), validate, C.getExamMarks);
 router.get('/:examId/results', reader, mongoIdParam('examId'), validate, C.getExamResults);
 
 // ── PDF Download ──────────────────────────────────────────
-router.get('/:examId/results/pdf', adminPrincipal, mongoIdParam('examId'), validate, C.getResultsPdf);
-
 module.exports = router;

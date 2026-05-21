@@ -7,22 +7,22 @@ router.use(protect);
 
 // Role groups
 const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant'];
-const WRITE_ROLES    = ['super_admin', 'admin', 'principal'];
+const WRITE_ROLES = ['super_admin', 'admin', 'principal'];
 
 /**
  * PATCH /api/parents/profile/me
  * Self-service: parent updates own profile — open to any authenticated user.
  */
 router.patch(
-  '/profile/me',
-  [
-    body('phone').optional().trim().isLength({ min: 7, max: 15 }).withMessage('Phone must be 7–15 characters'),
-    body('email').optional().trim().isEmail().withMessage('Valid email required'),
-    body('address').optional().trim().isLength({ max: 300 }).withMessage('Address too long'),
-    body('occupation').optional().trim().isLength({ max: 100 }),
-  ],
-  validate,
-  ParentController.updateMyProfile
+    '/profile/me',
+    [
+        body('phone').optional().trim().isLength({ min: 7, max: 15 }).withMessage('Phone must be 7–15 characters'),
+        body('email').optional().trim().isEmail().withMessage('Valid email required'),
+        body('address').optional().trim().isLength({ max: 300 }).withMessage('Address too long'),
+        body('occupation').optional().trim().isLength({ max: 100 }),
+    ],
+    validate,
+    ParentController.updateMyProfile
 );
 
 /**
@@ -30,15 +30,15 @@ router.patch(
  * Create a parent record — admin/principal only.
  */
 router.post(
-  '/',
-  authorize(...WRITE_ROLES),
-  [
-    body('name').trim().notEmpty().withMessage('Parent name is required'),
-    body('phone').trim().notEmpty().withMessage('Phone number is required'),
-    body('email').optional().isEmail().withMessage('Valid email required'),
-  ],
-  validate,
-  ParentController.create
+    '/',
+    authorize(...WRITE_ROLES),
+    [
+        body('name').trim().notEmpty().withMessage('Parent name is required'),
+        body('phone').trim().notEmpty().withMessage('Phone number is required'),
+        body('email').optional().isEmail().withMessage('Valid email required'),
+    ],
+    validate,
+    ParentController.create
 );
 
 /**
@@ -53,14 +53,14 @@ router.get('/:id', authorize(...READONLY_ROLES), mongoIdParam('id'), validate, P
  * Link a student to a parent — admin/principal only.
  */
 router.patch(
-  '/:id/link',
-  authorize(...WRITE_ROLES),
-  [
-    mongoIdParam('id'),
-    body('studentId').isMongoId().withMessage('Valid student ID is required'),
-  ],
-  validate,
-  ParentController.linkStudent
+    '/:id/link',
+    authorize(...WRITE_ROLES),
+    [
+        mongoIdParam('id'),
+        body('studentId').isMongoId().withMessage('Valid student ID is required'),
+    ],
+    validate,
+    ParentController.linkStudent
 );
 
 /**
@@ -68,11 +68,11 @@ router.patch(
  * Admin partial update — admin/principal only.
  */
 router.patch(
-  '/:id',
-  authorize(...WRITE_ROLES),
-  mongoIdParam('id'),
-  validate,
-  ParentController.update
+    '/:id',
+    authorize(...WRITE_ROLES),
+    mongoIdParam('id'),
+    validate,
+    ParentController.update
 );
 
 module.exports = router;

@@ -22,6 +22,45 @@ class FeesService {
   }
 
   // ═══════════════════════════════════════════════════════════
+  //  DISCOUNT REPORT
+  // ═══════════════════════════════════════════════════════════
+  static async getDiscounts(filters = {}) {
+    const query = { 'discounts.0': { $exists: true } };
+    if (filters.classId && mongoose.isValidObjectId(filters.classId)) {
+      query.classId = filters.classId;
+    }
+    if (filters.academicYearId && mongoose.isValidObjectId(filters.academicYearId)) {
+      query.academicYearId = filters.academicYearId;
+    }
+
+    const profiles = await StudentFeeProfile.find(query)
+      .populate('studentId', 'name rollNo admissionNo registerNo')
+      .populate('classId', 'name')
+      .sort({ createdAt: -1 });
+
+    const results = [];
+    for (const profile of profiles) {
+      if (!profile.discounts || !profile.discounts.length) continue;
+      
+      const invoice = await FeeInvoice.findOne({ feeProfileId: profile._id }).select('invoiceNumber status paidAmount dueAmount');
+      
+      for (const discount of profile.discounts) {
+        results.push({
+          student: profile.studentId,
+          class: profile.classId,
+          academicYearId: profile.academicYearId,
+          invoice: invoice ? { invoiceNumber: invoice.invoiceNumber, status: invoice.status } : null,
+          discount: discount,
+          grossFee: profile.grossFee,
+          netFee: profile.netFee,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // ═══════════════════════════════════════════════════════════
   //  NEXT DUE DATE HELPER
   // ═══════════════════════════════════════════════════════════
 

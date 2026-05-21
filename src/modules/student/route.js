@@ -10,28 +10,28 @@ router.use(protect);
 //   READONLY: accountant can VIEW students but not add/edit/delete
 //   WRITE:    principal/admin/super_admin can fully manage
 const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant', 'faculty'];
-const WRITE_ROLES    = ['super_admin', 'admin', 'principal'];
+const WRITE_ROLES = ['super_admin', 'admin', 'principal'];
 
 /**
  * GET /api/students
  * All desktop staff roles (incl. accountant) can view student list.
  */
 router.get(
-  '/',
-  authorize(...READONLY_ROLES),
-  [
-    ...paginationQuery,
-    query('classId')
-      .optional({ values: 'falsy' })
-      .isMongoId()
-      .withMessage('Invalid classId format'),
-    query('sectionId')
-      .optional({ values: 'falsy' })
-      .isMongoId()
-      .withMessage('Invalid sectionId format'),
-  ],
-  validate,
-  StudentController.getAll
+    '/',
+    authorize(...READONLY_ROLES),
+    [
+        ...paginationQuery,
+        query('classId')
+            .optional({ values: 'falsy' })
+            .isMongoId()
+            .withMessage('Invalid classId format'),
+        query('sectionId')
+            .optional({ values: 'falsy' })
+            .isMongoId()
+            .withMessage('Invalid sectionId format'),
+    ],
+    validate,
+    StudentController.getAll
 );
 
 /**
@@ -51,17 +51,17 @@ router.get('/:id', authorize(...READONLY_ROLES), mongoIdParam('id'), validate, S
  * Create a student directly — admin/principal only.
  */
 const createStudentValidation = [
-  body('name').trim().notEmpty().withMessage('Student name is required'),
-  body('dateOfBirth').notEmpty().isISO8601().withMessage('Valid date of birth is required'),
-  body('gender').isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
-  body('classId').notEmpty().isMongoId().withMessage('Valid class ID is required'),
-  body('sectionId').optional({ values: 'null' }).isMongoId().withMessage('Invalid section ID'),
-  body('parentName').trim().notEmpty().withMessage('Parent name is required'),
-  body('parentPhone').trim().notEmpty().withMessage('Parent phone is required'),
-  body('parentEmail').optional().isEmail().withMessage('Invalid email'),
-  body('address').optional().trim(),
-  body('bloodGroup').optional().trim(),
-  validate,
+    body('name').trim().notEmpty().withMessage('Student name is required'),
+    body('dateOfBirth').notEmpty().isISO8601().withMessage('Valid date of birth is required'),
+    body('gender').isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
+    body('classId').notEmpty().isMongoId().withMessage('Valid class ID is required'),
+    body('sectionId').optional({ values: 'null' }).isMongoId().withMessage('Invalid section ID'),
+    body('parentName').trim().notEmpty().withMessage('Parent name is required'),
+    body('parentPhone').trim().notEmpty().withMessage('Parent phone is required'),
+    body('parentEmail').optional().isEmail().withMessage('Invalid email'),
+    body('address').optional().trim(),
+    body('bloodGroup').optional().trim(),
+    validate,
 ];
 router.post('/', authorize(...WRITE_ROLES), createStudentValidation, StudentController.create);
 
@@ -70,11 +70,11 @@ router.post('/', authorize(...WRITE_ROLES), createStudentValidation, StudentCont
  * Partial update — admin/principal only.
  */
 router.patch(
-  '/:id',
-  authorize(...WRITE_ROLES),
-  mongoIdParam('id'),
-  validate,
-  StudentController.update
+    '/:id',
+    authorize(...WRITE_ROLES),
+    mongoIdParam('id'),
+    validate,
+    StudentController.update
 );
 
 module.exports = router;

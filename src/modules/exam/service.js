@@ -61,6 +61,7 @@ class ExamService {
       _id: obj._id,
       name: obj.name,
       examName: obj.name,           // alias
+      term: obj.term || null,       // 'term1' | 'term2' | null
       classId: obj.classId,
       academicYearId: obj.academicYearId,
       subjects,
@@ -114,11 +115,43 @@ class ExamService {
     if (!data.classId) throw new AppError('classId is required', 400);
     if (!data.maxMarks || data.maxMarks < 1) throw new AppError('maxMarks must be >= 1', 400);
 
+    // ── CBSE canonical exam structure validation ─────────────────────────────
+    const CBSE_EXAM_RULES = {
+      'periodic test':           { maxMarks: 10, autoTerm: null },
+      'notebook':                { maxMarks: 5,  autoTerm: null },
+      'sea':                     { maxMarks: 5,  autoTerm: null },
+      'half yearly examination': { maxMarks: 80, autoTerm: 'term1' },
+      'yearly examination':      { maxMarks: 80, autoTerm: 'term2' },
+    };
+    const normalizedName = examName.trim().toLowerCase();
+    const cbseRule = CBSE_EXAM_RULES[normalizedName];
+
+    if (cbseRule) {
+      // Enforce correct maxMarks
+      if (data.maxMarks !== cbseRule.maxMarks) {
+        throw new AppError(
+          `"${examName}" must have maxMarks = ${cbseRule.maxMarks} (CBSE school structure). Got ${data.maxMarks}.`,
+          400
+        );
+      }
+      // Auto-set term for HY/YE; require it for PT/NB/SEA
+      if (cbseRule.autoTerm) {
+        data.term = cbseRule.autoTerm;
+      } else if (!data.term || !['term1', 'term2'].includes(data.term)) {
+        throw new AppError(
+          `"${examName}" requires a term (term1 or term2) since it appears in both terms.`,
+          400
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const academicYearId = await SetupService.resolveAcademicYearId(data.academicYearId);
     const subjectIds = ExamService._normalizeSubjectIds(data.subjects || []);
 
     const exam = await Exam.create({
       name: examName,
+      term: data.term || null,
       classId: data.classId,
       academicYearId: academicYearId || null,
       subjects: subjectIds,
@@ -190,6 +223,7 @@ class ExamService {
 
     const update = {};
     if (data.examName || data.name) update.name = data.examName || data.name;
+    if (data.term !== undefined) update.term = data.term || null;
     if (data.maxMarks !== undefined) update.maxMarks = data.maxMarks;
     if (data.passingMarks !== undefined) update.passingMarks = data.passingMarks;
     if (data.startDate !== undefined) update.startDate = data.startDate || null;

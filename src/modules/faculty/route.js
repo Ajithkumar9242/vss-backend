@@ -7,7 +7,7 @@ router.use(protect);
 
 // Role groups
 const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant', 'faculty'];
-const WRITE_ROLES    = ['super_admin', 'admin', 'principal'];
+const WRITE_ROLES = ['super_admin', 'admin', 'principal'];
 
 /**
  * POST /api/faculty

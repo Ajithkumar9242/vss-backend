@@ -49,6 +49,14 @@ const examSchema = new mongoose.Schema(
     // Legacy single-date field (kept for backward compat)
     examDate: { type: Date, default: null },
 
+    // CBSE term — REQUIRED for marks card aggregation.
+    // PT / Notebook / SEA appear in BOTH terms; HY is always term1, YE always term2.
+    term: {
+      type: String,
+      enum: ['term1', 'term2'],
+      default: null,
+    },
+
     // Lifecycle flags
     isPublished: { type: Boolean, default: false },
     isLocked:    { type: Boolean, default: false },
@@ -57,7 +65,17 @@ const examSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One exam name per class per academic year
-examSchema.index({ name: 1, classId: 1, academicYearId: 1 }, { unique: true });
+// One exam name + term per class per academic year.
+// e.g. "Periodic Test / term1 / ClassA / 2025-26" is unique;
+// "Periodic Test / term2 / ClassA / 2025-26" is a separate, valid exam.
+examSchema.index({ name: 1, term: 1, classId: 1, academicYearId: 1 }, { unique: true, sparse: true });
 
-module.exports = mongoose.model('Exam', examSchema);
+const Exam = mongoose.model('Exam', examSchema);
+
+// Safe migration: ensure old indexes (like the one without 'term') are dropped
+// so they don't block creating exams with the same name in different terms.
+Exam.syncIndexes().catch((err) => {
+  console.error('Failed to sync Exam indexes:', err.message);
+});
+
+module.exports = Exam;

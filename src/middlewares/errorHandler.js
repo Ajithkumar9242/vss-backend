@@ -19,8 +19,15 @@ const errorHandler = (err, req, res, next) => {
   // ─── Mongoose duplicate key error ─────────────────────────
   if (err.code === 11000) {
     statusCode = 400;
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    message = `Duplicate value for '${field}'. Please use a different value.`;
+    const fields = Object.keys(err.keyValue || {});
+    if (fields.length > 1) {
+      // Compound index (e.g. name + term + class + year)
+      message = `An entry with this combination of ${fields.join(', ')} already exists.`;
+    } else {
+      // Single field index
+      const field = fields[0] || 'field';
+      message = `Duplicate value for '${field}'. Please use a different value.`;
+    }
   }
 
   // ─── Mongoose bad ObjectId ────────────────────────────────

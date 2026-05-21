@@ -24,19 +24,32 @@ const BORDER = '#2f5597';
 const TEXT = '#111827';
 const MUTED = '#4b5563';
 
+// ── School exam structure — ONLY these five components are used in the marks card.
+// Any exam with a different name (Mid Term 1, Mid Term 2, Test 1, Final, etc.) is
+// silently excluded from the PDF.
 const SCHOLASTIC_COMPONENTS = {
   term1: [
     { key: 'periodic', label: 'Periodic Test', max: 10 },
     { key: 'notebook', label: 'Notebook', max: 5 },
     { key: 'sea', label: 'SEA', max: 5 },
-    { key: 'halfYearly', label: 'Half Yearly', max: 80 },
+    { key: 'halfYearly', label: 'Half Yearly Examination', max: 80 },
   ],
   term2: [
     { key: 'periodic', label: 'Periodic Test', max: 10 },
     { key: 'notebook', label: 'Notebook', max: 5 },
     { key: 'sea', label: 'SEA', max: 5 },
-    { key: 'yearly', label: 'Yearly Exam', max: 80 },
+    { key: 'yearly', label: 'Yearly Examination', max: 80 },
   ],
+};
+
+// Strict name → { termKey, componentKey } lookup table.
+// Exact normalized (lowercase, trimmed) match only — no fuzzy/substring matching.
+const EXAM_NAME_MAP = {
+  'periodic test':          { term: null, key: 'periodic' },   // appears in both terms; term inferred from exam record's term field
+  'notebook':               { term: null, key: 'notebook' },
+  'sea':                    { term: null, key: 'sea' },
+  'half yearly examination':{ term: 'term1', key: 'halfYearly' },
+  'yearly examination':     { term: 'term2', key: 'yearly' },
 };
 
 const ADDITIONAL_SUBJECTS = ['General Knowledge', 'Computer', 'Abacus'];
@@ -86,12 +99,30 @@ const mm = (value, max) => {
   return Number.isInteger(value) ? String(value) : Number(value).toFixed(value % 1 === 0 ? 0 : 1);
 };
 
+/**
+ * Normalize a mark value for display in the marks card.
+ *
+ * When the exam was created with the correct school maxMarks (e.g. PT=10, HY=80),
+ * the stored marksObtained is already in the right range — return it directly.
+ *
+ * Only scale if the exam was created with a DIFFERENT maxMarks (legacy data):
+ *   e.g. mark stored as 8/100 for a PT slot that should show /10 → scales to 0.8
+ *
+ * @param {object} mark - { marksObtained, maxMarks }
+ * @param {number} targetMax - the component's canonical max (10, 5, or 80)
+ */
 const normalizeMark = (mark, targetMax) => {
   if (!mark) return '';
-  const sourceMax = mark.maxMarks || targetMax || 100;
-  if (!sourceMax) return '';
-  return Math.round((mark.marksObtained / sourceMax) * targetMax * 10) / 10;
+  const obtained = mark.marksObtained;
+  if (obtained === undefined || obtained === null) return '';
+  const sourceMax = mark.maxMarks || targetMax;
+  if (!sourceMax || !targetMax) return obtained;
+  // If the source max matches the target max, return the value directly (no scaling)
+  if (sourceMax === targetMax) return obtained;
+  // Legacy: scale proportionally (e.g. 80/100 → 64/80)
+  return Math.round((obtained / sourceMax) * targetMax * 10) / 10;
 };
+
 
 const gradeFromPercent = (percent) => {
   if (percent === null || percent === undefined || Number.isNaN(percent)) return '';
@@ -207,23 +238,41 @@ const drawStudentInfo = (doc, data, x, y, w) => {
   return y + 8;
 };
 
-const findComponentKey = (examName) => {
-  const name = (examName || '').toLowerCase();
-  if (name.includes('notebook') || name.includes('note book')) return 'notebook';
-  if (name.includes('sea') || name.includes('subject enrichment')) return 'sea';
-  if (name.includes('half') || name.includes('mid')) return 'halfYearly';
-  if (name.includes('yearly') || name.includes('annual') || name.includes('final')) return 'yearly';
-  if (name.includes('periodic') || name.includes('unit') || name.includes('pt')) return 'periodic';
+/**
+ * Strict lookup: returns { termKey, componentKey } or null.
+ *
+ * Term resolution priority:
+ *   1. Entry hard-wires the term (HY → term1, YE → term2) — always wins.
+ *   2. examTerm: the value stored on the Exam document (exam.term from DB).
+ *   3. fallbackTerm: the ?term= query parameter (legacy / manual override).
+ *   4. Cannot determine term → null → excluded from PDF.
+ *
+ * @param {string} examName
+ * @param {string|null} examTerm    - exam.term from the DB record ('term1'|'term2'|null)
+ * @param {string|null} fallbackTerm - query param ?term= ('term1'|'term2'|null)
+ */
+const findExamMapping = (examName, examTerm = null, fallbackTerm = null) => {
+  const normalized = (examName || '').trim().toLowerCase();
+  const entry = EXAM_NAME_MAP[normalized];
+  if (!entry) return null;  // unknown exam name — ignore entirely
+
+  // Priority 1: entry hard-wires the term (HY / YE)
+  if (entry.term) return { termKey: entry.term, componentKey: entry.key };
+
+  // Priority 2: stored exam.term (set when exam was created via CreateExamModal)
+  if (examTerm === 'term1' || examTerm === 'term2') {
+    return { termKey: examTerm, componentKey: entry.key };
+  }
+
+  // Priority 3: query param fallback (legacy / manual override)
+  if (fallbackTerm === 'term1' || fallbackTerm === 'term2') {
+    return { termKey: fallbackTerm, componentKey: entry.key };
+  }
+
+  // Cannot determine term — exclude from PDF
   return null;
 };
 
-const findTermKey = (examName, fallbackTerm = null) => {
-  const name = (examName || '').toLowerCase();
-  if (fallbackTerm === 'term1' || fallbackTerm === 'term2') return fallbackTerm;
-  if (name.includes('term 1') || name.includes('term-i') || name.includes('term i') || name.includes('half')) return 'term1';
-  if (name.includes('term 2') || name.includes('term-ii') || name.includes('term ii') || name.includes('yearly') || name.includes('annual') || name.includes('final')) return 'term2';
-  return null;
-};
 
 const buildSubjectRows = ({ student, exams, marks, term }) => {
   const subjectMap = new Map();
@@ -253,11 +302,13 @@ const buildSubjectRows = ({ student, exams, marks, term }) => {
     const subjectId = mark.subjectId?._id?.toString();
     if (!exam || !subjectId || !bySubject.has(subjectId)) return;
 
-    const termKey = findTermKey(exam.name, term);
-    const componentKey = findComponentKey(exam.name);
-    if (!termKey || !componentKey) return;
+    // Strict match — only school's canonical exam names are accepted.
+    // exam.term (stored on the Exam document) is the primary term signal.
+    // The query-param `term` acts as a fallback for legacy records without exam.term.
+    const mapping = findExamMapping(exam.name, exam.term || null, term);
+    if (!mapping) return;
 
-    bySubject.get(subjectId)[termKey][componentKey] = mark;
+    bySubject.get(subjectId)[mapping.termKey][mapping.componentKey] = mark;
   });
 
   if (!rows.length) {

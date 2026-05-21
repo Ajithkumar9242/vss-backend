@@ -4,9 +4,9 @@ const { protect, authorize } = require('../../middlewares/auth');
 const { validate, body, query, mongoIdParam } = require('../../utils/validators');
 const idempotency = require('../../middlewares/idempotency');
 
-const admin  = authorize('admin', 'super_admin');
+const admin = authorize('admin', 'super_admin');
 const adminPrincipal = authorize('admin', 'super_admin', 'principal');
-const staff  = authorize('admin', 'super_admin', 'faculty');
+const staff = authorize('admin', 'super_admin', 'faculty');
 const reader = authorize('admin', 'super_admin', 'faculty', 'parent');
 
 router.use(protect);
@@ -46,6 +46,7 @@ router.post(
     body('academicYearId').optional({ values: 'null' }).isMongoId(),
     body('maxMarks').isFloat({ min: 1 }).withMessage('maxMarks >= 1'),
     body('passingMarks').optional().isFloat({ min: 0 }),
+    body('term').optional({ values: 'falsy' }).isIn(['term1', 'term2']).withMessage('term must be term1 or term2'),
     body('startDate').optional({ nullable: true }).isISO8601(),
     body('endDate').optional({ nullable: true }).isISO8601(),
     body('examDate').optional({ nullable: true }).isISO8601(),
@@ -74,6 +75,7 @@ router.put(
     mongoIdParam('id'),
     body('examName').optional().trim(),
     body('name').optional().trim(),
+    body('term').optional({ values: 'falsy' }).isIn(['term1', 'term2']).withMessage('term must be term1 or term2'),
     body('maxMarks').optional().isFloat({ min: 1 }),
     body('passingMarks').optional().isFloat({ min: 0 }),
     body('startDate').optional({ nullable: true }).isISO8601(),
@@ -87,7 +89,7 @@ router.delete('/:id', admin, mongoIdParam('id'), validate, C.deleteExam);
 
 // ── Lifecycle ─────────────────────────────────────────────
 router.patch('/:id/publish', admin, mongoIdParam('id'), validate, C.publishExam);
-router.patch('/:id/lock',    admin, mongoIdParam('id'), validate, C.lockExam);
+router.patch('/:id/lock', admin, mongoIdParam('id'), validate, C.lockExam);
 
 // ── Marks ─────────────────────────────────────────────────
 router.post(

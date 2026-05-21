@@ -20,6 +20,14 @@ class FeesController {
     } catch (error) { next(error); }
   }
 
+  // ─── Discounts Report ───────────────────────────────────
+  static async getDiscounts(req, res, next) {
+    try {
+      const discounts = await FeesService.getDiscounts(req.query);
+      return ApiResponse.success(res, discounts, 'Discounts fetched successfully');
+    } catch (error) { next(error); }
+  }
+
   // ═══════════════════════════════════════════════════════════
   //  FEE COMPONENTS
   // ═══════════════════════════════════════════════════════════

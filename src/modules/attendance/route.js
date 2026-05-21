@@ -142,11 +142,11 @@ router.get(
       if (dateFrom || dateTo) {
         query.date = {};
         if (dateFrom) query.date.$gte = new Date(dateFrom);
-        if (dateTo)   query.date.$lte = new Date(dateTo);
+        if (dateTo) query.date.$lte = new Date(dateTo);
       }
       if (session) query.session = session;
       const records = await Attendance.find(query).sort({ date: -1 }).limit(200).lean();
-      const total   = records.length;
+      const total = records.length;
       const present = records.filter(r => r.status === 'present').length;
       const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
       const ApiResponse = require('../../utils/apiResponse');

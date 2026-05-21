@@ -5,7 +5,7 @@ const { validate, body, query, mongoIdParam } = require('../../utils/validators'
 
 const admin  = authorize('admin', 'super_admin');
 const staff  = authorize('admin', 'super_admin', 'faculty');
-const reader = authorize('admin', 'super_admin', 'faculty', 'parent', 'student');
+const reader = authorize('admin', 'super_admin', 'faculty', 'parent', 'student', 'visitor');
 
 router.use(protect);
 

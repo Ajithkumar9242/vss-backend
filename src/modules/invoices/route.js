@@ -4,7 +4,7 @@ const router = require('express').Router();
 const { protect, authorize } = require('../../middlewares/auth');
 const InvoiceRegistryController = require('./controller');
 
-const ADMIN_ROLES = ['admin', 'super_admin', 'principal', 'accountant'];
+const ADMIN_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
 
 
 router.use(protect);

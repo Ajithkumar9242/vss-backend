@@ -36,6 +36,11 @@ const protect = async (req, res, next) => {
       return ApiResponse.error(res, 'Account deactivated. Contact admin.', 403);
     }
 
+    // Visitor role is strictly read-only — block all writes at the gateway level
+    if (user.role === 'visitor' && req.method !== 'GET' && req.method !== 'OPTIONS') {
+      return ApiResponse.error(res, 'Visitor role is read-only', 403);
+    }
+
     req.user = user;
     next();
   } catch (error) {

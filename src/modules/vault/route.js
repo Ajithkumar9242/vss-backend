@@ -5,7 +5,7 @@ const multer = require('multer');
 const { protect, authorize } = require('../../middlewares/auth');
 const VaultController = require('./controller');
 
-const ADMIN_ROLES = ['admin', 'super_admin', 'principal', 'accountant'];
+const ADMIN_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
 const PARENT_ROLES = ['parent'];
 const ALL_ROLES = [...ADMIN_ROLES, ...PARENT_ROLES];
 

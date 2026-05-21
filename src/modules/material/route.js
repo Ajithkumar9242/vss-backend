@@ -4,7 +4,7 @@ const { protect, authorize } = require('../../middlewares/auth');
 const { validate, body, mongoIdParam } = require('../../utils/validators');
 
 const staff  = authorize('admin', 'super_admin', 'faculty');
-const reader = authorize('admin', 'super_admin', 'faculty', 'parent', 'student');
+const reader = authorize('admin', 'super_admin', 'faculty', 'parent', 'student', 'visitor');
 
 router.use(protect);
 

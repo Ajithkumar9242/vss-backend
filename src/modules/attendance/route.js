@@ -14,17 +14,17 @@ router.post('/monthly/upsert',
 );
 
 router.get('/monthly/class/:classId',
-  authorize('admin', 'super_admin', 'faculty'),
+  authorize('admin', 'super_admin', 'faculty', 'visitor'),
   AttendanceController.getMonthlyClassEntry
 );
 
 router.get('/monthly/report/class/:classId',
-  authorize('admin', 'super_admin', 'faculty'),
+  authorize('admin', 'super_admin', 'faculty', 'visitor'),
   AttendanceController.getMonthlyClassReport
 );
 
 router.get('/monthly/report/student/:studentId',
-  authorize('admin', 'super_admin', 'faculty', 'parent'),
+  authorize('admin', 'super_admin', 'faculty', 'parent', 'visitor'),
   AttendanceController.getMonthlyStudentReport
 );
 
@@ -110,7 +110,7 @@ router.get(
  */
 router.get(
   '/report',
-  authorize('admin', 'super_admin', 'faculty', 'parent'),
+  authorize('admin', 'super_admin', 'faculty', 'parent', 'visitor'),
   [
     query('classId').isMongoId().withMessage('Valid class ID is required'),
     query('dateFrom').optional().isISO8601().withMessage('Valid dateFrom required'),
@@ -128,7 +128,7 @@ router.get(
  */
 router.get(
   '/student/:studentId',
-  authorize('admin', 'super_admin', 'faculty', 'parent'),
+  authorize('admin', 'super_admin', 'faculty', 'parent', 'visitor'),
   [
     require('express-validator').param('studentId').isMongoId().withMessage('Valid studentId required'),
     require('../../utils/validators').validate,

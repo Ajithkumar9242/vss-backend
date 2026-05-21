@@ -35,6 +35,7 @@ const setupRoutes = require('./modules/setup/routes');
 const subjectRoutes = require('./modules/subject/route');
 const assignmentRoutes = require('./modules/assignment/route');
 const materialRoutes   = require('./modules/material/route');
+const timetableRoutes  = require('./modules/timetable/route');
 
 const app = express();
 
@@ -108,6 +109,7 @@ app.use('/api/setup', setupRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/materials', materialRoutes);
+app.use('/api/timetable', timetableRoutes);
 
 // ─── New Modules ────────────────────────────────────────────
 const vaultRoutes    = require('./modules/vault/route');

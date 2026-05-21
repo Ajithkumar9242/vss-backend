@@ -6,7 +6,7 @@ const { validate, body, mongoIdParam } = require('../../utils/validators');
 router.use(protect);
 
 // Role groups
-const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant'];
+const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant', 'visitor'];
 const WRITE_ROLES = ['super_admin', 'admin', 'principal'];
 
 /**

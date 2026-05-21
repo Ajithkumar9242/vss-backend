@@ -9,7 +9,7 @@ const idempotency = require('../../middlewares/idempotency');
 router.use(protect);
 
 // Role groups for this module
-const FINANCE_ROLES = ['admin', 'super_admin', 'principal', 'accountant'];
+const FINANCE_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
 const ADMIN_ONLY = ['admin', 'super_admin'];
 
 // ─── Health ───────────────────────────────────────────────────

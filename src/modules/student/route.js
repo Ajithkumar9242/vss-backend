@@ -9,7 +9,7 @@ router.use(protect);
 // Role groups:
 //   READONLY: accountant can VIEW students but not add/edit/delete
 //   WRITE:    principal/admin/super_admin can fully manage
-const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant', 'faculty'];
+const READONLY_ROLES = ['super_admin', 'admin', 'principal', 'accountant', 'faculty', 'visitor'];
 const WRITE_ROLES = ['super_admin', 'admin', 'principal'];
 
 /**

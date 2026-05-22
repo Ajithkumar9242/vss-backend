@@ -25,7 +25,7 @@ class StudentService {
     if (query.isActive !== undefined) {
       filter.isActive = query.isActive === 'true';
     }
-    // Search by name / roll / admission / register number
+    // Search by name / roll / admission / register number / parent name / phone number
     if (query.search) {
       filter.$or = [
         { name: { $regex: query.search, $options: 'i' } },
@@ -33,6 +33,11 @@ class StudentService {
         { admissionNo: { $regex: query.search, $options: 'i' } },
         { admissionNumber: { $regex: query.search, $options: 'i' } },
         { registerNo: { $regex: query.search, $options: 'i' } },
+        { parentName: { $regex: query.search, $options: 'i' } },
+        { parentPhone: { $regex: query.search, $options: 'i' } },
+        { "father.phone": { $regex: query.search, $options: 'i' } },
+        { "mother.phone": { $regex: query.search, $options: 'i' } },
+        { "guardian.phone": { $regex: query.search, $options: 'i' } },
       ];
     }
 
@@ -49,7 +54,7 @@ class StudentService {
           select: 'applicationNo status sectionId studentPhoto avatar',
           populate: { path: 'sectionId', select: 'name' }
         })
-        .sort({ createdAt: -1 })
+        .sort({ classId: 1, sectionId: 1, rollNo: 1, name: 1 })
         .skip(skip)
         .limit(limit),
       Student.countDocuments(filter),

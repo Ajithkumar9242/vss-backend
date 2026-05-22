@@ -33,6 +33,14 @@ async function run() {
             phone: '9000000002',
             isActive: true,
         },
+        {
+    name: 'Visitor User',
+    email: 'visitor@vss.com',
+    password: 'Vms@1234',
+    role: 'visitor',
+    phone: '9000000003',
+    isActive: true,
+},
     ];
 
     for (const u of users) {

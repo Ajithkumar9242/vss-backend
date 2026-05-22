@@ -6,7 +6,7 @@ const idempotency = require('../../middlewares/idempotency');
 
 const admin = authorize('admin', 'super_admin');
 const adminPrincipal = authorize('admin', 'super_admin', 'principal');
-const staff = authorize('admin', 'super_admin', 'faculty', 'visitor');
+const staff = authorize('admin', 'super_admin', 'faculty');
 const reader = authorize('admin', 'super_admin', 'faculty', 'parent', 'visitor');
 
 router.use(protect);

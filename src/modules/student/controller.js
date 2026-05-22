@@ -74,6 +74,53 @@ class StudentController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/students/bulk-import
+   * Bulk import students from parsed CSV rows.
+   * Accepts: { rows: Array<Object> }
+   */
+  static async bulkImport(req, res, next) {
+    try {
+      const rows = req.body?.rows;
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return ApiResponse.error(res, 'rows must be a non-empty array', 400);
+      }
+      if (rows.length > 1000) {
+        return ApiResponse.error(res, 'Maximum 1000 rows per import batch', 400);
+      }
+      const result = await StudentService.bulkImport(rows);
+      return ApiResponse.success(res, result, `Import complete: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/students/sample-csv
+   * Download a sample CSV template for bulk student import.
+   */
+  static getSampleCsv(req, res) {
+    const headers = [
+      'studentName', 'class', 'section', 'dateOfBirth', 'gender',
+      'admissionNo', 'registerNo', 'rollNo',
+      'parentName', 'parentPhone', 'parentEmail',
+      'bloodGroup', 'address',
+      'aadhaarNo', 'satsNumber', 'apaarNumber',
+    ];
+    const exampleRow = [
+      'Ravi Kumar', 'Class 5', 'A', '2014-06-15', 'male',
+      'ADM-001', 'REG-001', '',
+      'Suresh Kumar', '9876543210', 'suresh@example.com',
+      'O+', '12 Main Street, Bangalore',
+      '', '', '',
+    ];
+    const csvContent = [headers.join(','), exampleRow.join(',')].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="student_import_template.csv"');
+    res.send(csvContent);
+  }
 }
 
 module.exports = StudentController;

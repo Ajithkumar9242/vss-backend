@@ -6,6 +6,7 @@ const { protect, authorize } = require('../../middlewares/auth');
 const VaultController = require('./controller');
 
 const ADMIN_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
+const ADMIN_WRITE_ROLES = ['admin', 'super_admin', 'principal', 'accountant'];
 const PARENT_ROLES = ['parent'];
 const ALL_ROLES = [...ADMIN_ROLES, ...PARENT_ROLES];
 
@@ -32,22 +33,22 @@ router.use(protect);
 
 // ─── Catalog (parent sees active only; controller handles filtering) ──
 router.get('/catalog', authorize(...ALL_ROLES), VaultController.listCatalog);
-router.post('/catalog', authorize(...ADMIN_ROLES), VaultController.createCatalogItem);
-router.put('/catalog/:id', authorize(...ADMIN_ROLES), VaultController.updateCatalogItem);
-router.patch('/catalog/:id/toggle', authorize(...ADMIN_ROLES), VaultController.toggleCatalogItem);
+router.post('/catalog', authorize(...ADMIN_WRITE_ROLES), VaultController.createCatalogItem);
+router.put('/catalog/:id', authorize(...ADMIN_WRITE_ROLES), VaultController.updateCatalogItem);
+router.patch('/catalog/:id/toggle', authorize(...ADMIN_WRITE_ROLES), VaultController.toggleCatalogItem);
 
 // ─── Requests — Admin ────────────────────────────────────────────────
 router.get('/requests', authorize(...ADMIN_ROLES), VaultController.listRequests);
-router.post('/requests/:id/approve', authorize(...ADMIN_ROLES), VaultController.approveRequest);
-router.post('/requests/:id/reject', authorize(...ADMIN_ROLES), VaultController.rejectRequest);
-router.patch('/requests/:id/fulfill', authorize(...ADMIN_ROLES), VaultController.fulfillRequest);
+router.post('/requests/:id/approve', authorize(...ADMIN_WRITE_ROLES), VaultController.approveRequest);
+router.post('/requests/:id/reject', authorize(...ADMIN_WRITE_ROLES), VaultController.rejectRequest);
+router.patch('/requests/:id/fulfill', authorize(...ADMIN_WRITE_ROLES), VaultController.fulfillRequest);
 // SuperAdmin ONLY cash override
 router.post('/requests/:id/pay/admin-mark-paid', authorize('super_admin'), VaultController.adminMarkPaid);
 
 // ─── Files — Admin ───────────────────────────────────────────────────
-router.post('/students/:studentId/files/upload', authorize(...ADMIN_ROLES), upload.single('file'), VaultController.uploadFile);
+router.post('/students/:studentId/files/upload', authorize(...ADMIN_WRITE_ROLES), upload.single('file'), VaultController.uploadFile);
 router.get('/students/:studentId/files', authorize(...ADMIN_ROLES), VaultController.listStudentFiles);
-router.delete('/files/:fileId', authorize(...ADMIN_ROLES), VaultController.softDeleteFile);
+router.delete('/files/:fileId', authorize(...ADMIN_WRITE_ROLES), VaultController.softDeleteFile);
 
 // ─── Receipt PDF — Admin + Parent ────────────────────────────────────
 router.get('/requests/:id/receipt', authorize(...ALL_ROLES), VaultController.getRequestReceipt);

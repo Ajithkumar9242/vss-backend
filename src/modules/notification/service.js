@@ -150,10 +150,30 @@ class NotificationService {
   }
 
   /**
-   * Send SMS notification (placeholder — integrate Twilio/SNS in production).
+   * Send SMS notification using MSG91 flow API if configured.
+   * Falls back to console logging in dev/test environments.
+   * 
+   * @param {string} phone
+   * @param {string} message
+   * @param {string} [type] - Template type (e.g. ADMISSION_APPROVED, ADMISSION_SUBMITTED)
+   * @param {Object} [variables] - Key-value variables for MSG91 flow template
    */
-  static async sendSMS(phone, message) {
+  static async sendSMS(phone, message, type = null, variables = {}) {
     if (!phone) return;
+
+    const apiKey = process.env.MSG91_API_KEY;
+    const templateId = type ? process.env[`MSG91_TEMPLATE_ID_${type.toUpperCase()}`] : null;
+
+    if (apiKey && templateId) {
+      try {
+        const { sendFlowSMS } = require('../../utils/msg91');
+        await sendFlowSMS({ phone, templateId, variables });
+        return true;
+      } catch (err) {
+        console.error(`[SMS] MSG91 flow send failed: ${err.message}. Falling back to console log.`);
+      }
+    }
+
     console.log(`\n📱 [SMS] To: ${phone}`);
     console.log(`✉️  Message: ${message}\n`);
     return true;

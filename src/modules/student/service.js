@@ -44,14 +44,39 @@ class StudentService {
       Student.find(filter)
         .populate('classId', 'name code')
         .populate('sectionId', 'name')
-        .populate('admissionId', 'applicationNo status')
+        .populate({
+          path: 'admissionId',
+          select: 'applicationNo status sectionId studentPhoto avatar',
+          populate: { path: 'sectionId', select: 'name' }
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
       Student.countDocuments(filter),
     ]);
 
-    return { students, total, page, limit };
+    const mappedStudents = students.map(s => {
+      const studentObj = s.toObject();
+      
+      // Fallback sectionId from admissionId if missing on student record
+      if (!studentObj.sectionId && studentObj.admissionId) {
+        if (studentObj.admissionId.sectionId) {
+          studentObj.sectionId = studentObj.admissionId.sectionId;
+        }
+      }
+      
+      // Fallback avatar / studentPhoto from admissionId if missing on student record
+      if (!studentObj.avatar && !studentObj.studentPhoto) {
+        if (studentObj.admissionId) {
+          studentObj.avatar = studentObj.admissionId.studentPhoto || studentObj.admissionId.avatar || null;
+          studentObj.studentPhoto = studentObj.admissionId.studentPhoto || studentObj.admissionId.avatar || null;
+        }
+      }
+      
+      return studentObj;
+    });
+
+    return { students: mappedStudents, total, page, limit };
   }
 
   /**
@@ -63,13 +88,34 @@ class StudentService {
     const student = await Student.findById(studentId)
       .populate('classId', 'name code')
       .populate('sectionId', 'name capacity')
-      .populate('admissionId', 'applicationNo status approvedAt');
+      .populate({
+        path: 'admissionId',
+        select: 'applicationNo status approvedAt sectionId studentPhoto avatar',
+        populate: { path: 'sectionId', select: 'name capacity' }
+      });
 
     if (!student) {
       throw new AppError('Student not found', 404);
     }
 
-    return student;
+    const studentObj = student.toObject();
+
+    // Fallback sectionId from admissionId if missing on student record
+    if (!studentObj.sectionId && studentObj.admissionId) {
+      if (studentObj.admissionId.sectionId) {
+        studentObj.sectionId = studentObj.admissionId.sectionId;
+      }
+    }
+
+    // Fallback avatar / studentPhoto from admissionId if missing on student record
+    if (!studentObj.avatar && !studentObj.studentPhoto) {
+      if (studentObj.admissionId) {
+        studentObj.avatar = studentObj.admissionId.studentPhoto || studentObj.admissionId.avatar || null;
+        studentObj.studentPhoto = studentObj.admissionId.studentPhoto || studentObj.admissionId.avatar || null;
+      }
+    }
+
+    return studentObj;
   }
 
   /**
@@ -92,8 +138,32 @@ class StudentService {
     let admission = null;
     if (student.admissionId) {
       const Admission = mongoose.model('Admission');
-      admission = await Admission.findById(student.admissionId).lean();
+      admission = await Admission.findById(student.admissionId)
+        .populate('sectionId', 'name capacity')
+        .lean();
     }
+
+    // Fallback sectionId from admission if missing on student
+    if (!student.sectionId && admission?.sectionId) {
+      student.sectionId = admission.sectionId;
+    }
+
+    // Fallback avatar / studentPhoto from admission if missing on student
+    if (!student.avatar && !student.studentPhoto) {
+      student.avatar = admission?.studentPhoto || admission?.avatar || null;
+      student.studentPhoto = admission?.studentPhoto || admission?.avatar || null;
+    }
+    
+    // Unify Student fields into admission object so profile UI sees everything in one place
+    admission = {
+      ...admission,
+      ...student,
+      studentName: student.name || admission?.studentName,
+      father: { ...(admission?.father || {}), ...(student.father || {}) },
+      mother: { ...(admission?.mother || {}), ...(student.mother || {}) },
+      guardian: { ...(admission?.guardian || {}), ...(student.guardian || {}) },
+      documentChecklist: { ...(admission?.documentChecklist || {}), ...(student.documentChecklist || {}) },
+    };
 
     // ─── Attendance ─────────────────────────────────────────────
     let attendance = { summary: { totalConducted: 0, totalAttended: 0, percentage: 0 }, monthly: [] };
@@ -214,7 +284,7 @@ class StudentService {
   static async createStudent(data) {
     const Class = require('../../models/Class');
     const Section = require('../../models/Section');
-    const FeeStructure = require('../../models/FeeStructure');
+    // NOTE: FeeStructure model does NOT exist in this codebase — do NOT require it.
     const SetupService = require('../setup/service');
     const AdmissionService = require('../admission/service');
 
@@ -246,7 +316,7 @@ class StudentService {
       ...data,
       rollNo,
       admissionNo: admissionNo || rollNo,
-      admissionNumber: data.admissionNumber || admissionNo || null,
+      admissionNumber: data.admissionNumber || admissionNo || undefined,
       registerNo: registerNo || rollNo,
       academicYearId,
       admissionId: null,
@@ -271,26 +341,217 @@ class StudentService {
   }
 
   /**
-   * Update a student's fields (partial update).
-   * Never overwrites existing value with null — skip undefined/null values.
-   * @param {string} studentId
-   * @param {Object} updates - e.g. { avatar: 'https://...' }
+   * Bulk import students from parsed CSV rows.
+   * Each row is processed independently — failures do not abort the batch.
+   *
+   * @param {Array<Object>} rows  - parsed + validated row objects
+   * @returns {{ created: number, skipped: number, failed: number, results: Array }}
    */
+  static async bulkImport(rows) {
+    const Class = require('../../models/Class');
+    const Section = require('../../models/Section');
+    const SetupService = require('../setup/service');
+    const AdmissionService = require('../admission/service');
+
+    // Pre-load all classes and sections once to avoid N+1 queries
+    const [allClasses, allSections] = await Promise.all([
+      Class.find({}).select('_id name code').lean(),
+      require('../../models/Section').find({}).select('_id name classId').lean(),
+    ]);
+
+    const classMap = {};
+    allClasses.forEach((c) => {
+      classMap[c.name.trim().toLowerCase()] = c;
+      classMap[c.code.trim().toLowerCase()] = c;
+    });
+    const sectionMap = {}; // "classId::sectionName" → section
+    allSections.forEach((s) => {
+      const key = `${s.classId.toString()}::${s.name.trim().toLowerCase()}`;
+      sectionMap[key] = s;
+    });
+
+    const academicYearId = await SetupService.resolveAcademicYearId(null);
+
+    const results = [];
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 1;
+
+      try {
+        // ── Resolve class ────────────────────────────────────────
+        const classKey = (row.class || row.className || '').trim().toLowerCase();
+        const classDoc = classMap[classKey];
+        if (!classDoc) {
+          results.push({ row: rowNum, status: 'failed', reason: `Class "${row.class || row.className}" not found` });
+          failed++;
+          continue;
+        }
+
+        // ── Resolve section (optional) ───────────────────────────
+        let sectionId = null;
+        const sectionName = (row.section || row.sectionName || '').trim().toLowerCase();
+        if (sectionName) {
+          const secKey = `${classDoc._id.toString()}::${sectionName}`;
+          const secDoc = sectionMap[secKey];
+          if (secDoc) sectionId = secDoc._id;
+          // Missing section is non-fatal — just leave null
+        }
+
+        // ── Admission number uniqueness check ────────────────────
+        const admissionNo = (row.admissionNo || row.admissionNumber || '').trim() || null;
+        const registerNo = (row.registerNo || '').trim() || null;
+
+        if (admissionNo) {
+          const dup = await Student.findOne({
+            $or: [{ admissionNo }, { admissionNumber: admissionNo }],
+          }).select('_id').lean();
+          if (dup) {
+            results.push({ row: rowNum, status: 'skipped', reason: `Duplicate admission number "${admissionNo}"`, name: row.studentName || row.name });
+            skipped++;
+            continue;
+          }
+        }
+
+        if (registerNo) {
+          const dup = await Student.findOne({ registerNo }).select('_id').lean();
+          if (dup) {
+            results.push({ row: rowNum, status: 'skipped', reason: `Duplicate register number "${registerNo}"`, name: row.studentName || row.name });
+            skipped++;
+            continue;
+          }
+        }
+
+        // ── Required field validation ────────────────────────────
+        const name = (row.studentName || row.name || '').trim();
+        if (!name) {
+          results.push({ row: rowNum, status: 'failed', reason: 'Student name is required' });
+          failed++;
+          continue;
+        }
+
+        const dob = row.dateOfBirth || row.dob || row.DOB;
+        if (!dob || isNaN(new Date(dob).getTime())) {
+          results.push({ row: rowNum, status: 'failed', reason: 'Valid date of birth is required (YYYY-MM-DD)', name });
+          failed++;
+          continue;
+        }
+
+        const gender = (row.gender || '').trim().toLowerCase();
+        if (!['male', 'female', 'other'].includes(gender)) {
+          results.push({ row: rowNum, status: 'failed', reason: `Invalid gender "${row.gender}" — must be male, female, or other`, name });
+          failed++;
+          continue;
+        }
+
+        const parentName = (row.parentName || row.guardianName || '').trim();
+        const parentPhone = (row.parentPhone || row.phone || '').trim();
+        if (!parentName || !parentPhone) {
+          results.push({ row: rowNum, status: 'failed', reason: 'Parent name and phone are required', name });
+          failed++;
+          continue;
+        }
+
+        // ── Generate roll number ─────────────────────────────────
+        const rollNo = await AdmissionService.generateRollNo(classDoc._id);
+
+        // ── Create student ───────────────────────────────────────
+        const student = await Student.create({
+          name,
+          dateOfBirth: new Date(dob),
+          gender,
+          classId: classDoc._id,
+          sectionId,
+          academicYearId,
+          admissionId: null,
+          rollNo,
+          admissionNo: admissionNo || rollNo,
+          admissionNumber: admissionNo || null,
+          registerNo: registerNo || rollNo,
+          parentName,
+          parentPhone,
+          parentEmail: (row.parentEmail || row.email || '').trim() || undefined,
+          bloodGroup: (row.bloodGroup || '').trim() || undefined,
+          address: (row.address || '').trim() || undefined,
+
+          admissionDate: (row.admissionDate && !isNaN(new Date(row.admissionDate).getTime())) ? new Date(row.admissionDate) : undefined,
+          mode: ['online', 'offline'].includes((row.mode || '').trim().toLowerCase()) ? (row.mode || '').trim().toLowerCase() : 'offline',
+          type: ['residential', 'day-boarding'].includes((row.type || '').trim().toLowerCase()) ? (row.type || '').trim().toLowerCase() : 'day-boarding',
+          secondLanguage: (row.secondLanguage || '').trim() || undefined,
+          dobInWords: (row.dobInWords || '').trim() || undefined,
+          placeOfBirth: (row.placeOfBirth || '').trim() || undefined,
+          nationality: (row.nationality || '').trim() || 'Indian',
+          religion: (row.religion || '').trim() || undefined,
+          motherTongue: (row.motherTongue || '').trim() || undefined,
+          aadhaarNo: (row.aadhaarNo || '').trim() || undefined,
+          caste: (row.caste || '').trim() || undefined,
+          category: ['General', 'OBC', 'SC', 'ST', 'Others'].includes((row.category || '').trim()) ? (row.category || '').trim() : 'General',
+          previousSchool: (row.previousSchool || '').trim() || undefined,
+          previousSchoolAddress: (row.previousSchoolAddress || '').trim() || undefined,
+          previousBoard: (row.previousBoard || '').trim() || undefined,
+          mediumOfInstruction: (row.mediumOfInstruction || '').trim() || undefined,
+          classLastStudied: (row.classLastStudied || '').trim() || undefined,
+          yearOfCompletion: (row.yearOfCompletion || '').trim() || undefined,
+          tcNumber: (row.tcNumber || '').trim() || undefined,
+          tcDate: (row.tcDate && !isNaN(new Date(row.tcDate).getTime())) ? new Date(row.tcDate) : undefined,
+          satsNumber: (row.satsNumber || '').trim() || undefined,
+          apaarNumber: (row.apaarNumber || '').trim() || undefined,
+          penNumber: (row.penNumber || '').trim() || undefined,
+          hasTC: String(row.hasTC).toLowerCase() === 'true' || String(row.hasTC) === '1',
+
+          // Medical & SEN
+          allergies: (row.allergies || '').trim() || undefined,
+          medicalConditions: (row.medicalConditions || '').trim() || undefined,
+          senType: (row.senType || '').trim() || undefined,
+          senSupportLevel: ['Mild', 'Moderate', 'Intensive'].includes((row.senSupportLevel || '').trim()) ? (row.senSupportLevel || '').trim() : '',
+        });
+
+        // ── Non-blocking fee invoice ─────────────────────────────
+        try {
+          const FeesService = require('../fees/service');
+          await FeesService.generateInvoice({
+            studentId: student._id,
+            classId: student.classId,
+            academicYearId,
+          });
+        } catch (e) {
+          console.error(`[BulkImport] Fee invoice failed for row ${rowNum}:`, e.message);
+        }
+
+        results.push({ row: rowNum, status: 'created', name, rollNo, admissionNo: student.admissionNo });
+        created++;
+      } catch (err) {
+        results.push({
+          row: rowNum,
+          status: 'failed',
+          reason: err.message || 'Unknown error',
+          name: row.studentName || row.name || `Row ${rowNum}`,
+        });
+        failed++;
+      }
+    }
+
+    return { created, skipped, failed, results };
+  }
+
   static async updateStudent(studentId, updates) {
     if (!mongoose.isValidObjectId(studentId)) {
       throw new AppError('Invalid student ID format', 400);
     }
 
-    // Strip null/undefined to avoid overwriting good data
+    // Strip undefined, but allow null or empty string to clear optional fields
     const clean = {};
     Object.entries(updates).forEach(([k, v]) => {
-      if (v !== null && v !== undefined && v !== '') clean[k] = v;
+      if (v !== undefined) clean[k] = v;
     });
 
     if (clean.admissionNo || clean.admissionNumber || clean.registerNo) {
       await StudentService._assertUniqueNumbers({
-        admissionNo: (clean.admissionNo || clean.admissionNumber || '').trim() || null,
-        registerNo: (clean.registerNo || '').trim() || null,
+        admissionNo: clean.admissionNo ? String(clean.admissionNo).trim() : null,
+        registerNo: clean.registerNo ? String(clean.registerNo).trim() : null,
         excludeId: studentId,
       });
       if (clean.admissionNo && !clean.admissionNumber) clean.admissionNumber = clean.admissionNo;

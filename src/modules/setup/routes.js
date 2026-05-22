@@ -7,7 +7,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.use(protect);
-router.use(authorize('admin', 'super_admin'));
+router.use(authorize('admin', 'super_admin', 'visitor'));
 
 // ─── School Setting ──────────────────────────────────────────
 router.get('/school-setting', C.getSchoolSetting);

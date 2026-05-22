@@ -134,7 +134,12 @@ class PaymentController {
       
       // Fallback SMS
       if (admission.parentPhone) {
-        NotificationService.sendSMS(admission.parentPhone, `Your admission application (${applicationNo}) has been successfully submitted.`).catch((e) => console.error('SMS fallback failed:', e.message));
+        NotificationService.sendSMS(
+          admission.parentPhone,
+          `Your admission application (${applicationNo}) has been successfully submitted.`,
+          'ADMISSION_SUBMITTED',
+          { applicationNo }
+        ).catch((e) => console.error('SMS fallback failed:', e.message));
       }
 
       // 6. Activity log

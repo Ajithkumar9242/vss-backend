@@ -6,6 +6,7 @@ const { validate, body, query, mongoIdParam } = require('../../utils/validators'
 const admin  = authorize('admin', 'super_admin');
 const staff  = authorize('admin', 'super_admin', 'faculty');
 const reader = authorize('admin', 'super_admin', 'faculty', 'parent', 'student', 'visitor');
+const submitters = authorize('admin', 'super_admin', 'faculty', 'parent', 'student');
 
 router.use(protect);
 
@@ -42,7 +43,7 @@ router.delete('/:id', staff, mongoIdParam('id'), validate, C.remove);
 // ── Submissions ───────────────────────────────────────────────
 router.post(
   '/:id/submit',
-  reader,
+  submitters,
   mongoIdParam('id'),
   [body('studentId').isMongoId().withMessage('Valid studentId required')],
   validate, C.submit

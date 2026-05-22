@@ -373,7 +373,12 @@ class AdmissionService {
 
     // Fallback SMS
     if (admission.parentPhone) {
-      NotificationService.sendSMS(admission.parentPhone, `Congratulations! The admission for ${admission.studentName} has been approved. Roll No: ${student.rollNo}`).catch((e) => console.error('SMS fallback failed:', e.message));
+      NotificationService.sendSMS(
+        admission.parentPhone,
+        `Congratulations! The admission for ${admission.studentName} has been approved. Roll No: ${student.rollNo}`,
+        'ADMISSION_APPROVED',
+        { studentName: admission.studentName, rollNo: student.rollNo }
+      ).catch((e) => console.error('SMS fallback failed:', e.message));
     }
 
     ActivityService.log({

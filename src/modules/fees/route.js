@@ -10,6 +10,7 @@ router.use(protect);
 
 // Role groups for this module
 const FINANCE_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
+const FINANCE_WRITE_ROLES = ['admin', 'super_admin', 'principal', 'accountant'];
 const ADMIN_ONLY = ['admin', 'super_admin'];
 
 // ─── Health ───────────────────────────────────────────────────
@@ -26,7 +27,7 @@ router.get('/components/:id', mongoIdParam('id'), validate, C.getComponent);
 
 router.post(
     '/components',
-    authorize(...FINANCE_ROLES),
+    authorize(...FINANCE_WRITE_ROLES),
     [
         body('name').notEmpty().withMessage('Name is required'),
         body('code').notEmpty().withMessage('Code is required'),
@@ -41,7 +42,7 @@ router.post(
 
 router.put(
     '/components/:id',
-    authorize(...FINANCE_ROLES),
+    authorize(...FINANCE_WRITE_ROLES),
     mongoIdParam('id'), validate,
     C.updateComponent
 );
@@ -120,7 +121,7 @@ router.post(
 // ═══════════════════════════════════════════════════════════
 router.post(
     '/invoice/generate',
-    authorize(...FINANCE_ROLES),
+    authorize(...FINANCE_WRITE_ROLES),
     [body('studentId').isMongoId().withMessage('Valid studentId required')],
     validate,
     C.generateInvoice
@@ -132,7 +133,7 @@ router.get('/invoices/:invoiceId', mongoIdParam('invoiceId'), validate, C.getInv
 // ─── Pay an installment ───────────────────────────────────
 router.post(
     '/invoices/:invoiceId/pay',
-    authorize(...FINANCE_ROLES),
+    authorize(...FINANCE_WRITE_ROLES),
     idempotency(),
     mongoIdParam('invoiceId'),
     [
@@ -150,7 +151,7 @@ router.post(
 // ─── Penalty ──────────────────────────────────────────────
 router.post(
     '/invoices/:invoiceId/penalty',
-    authorize(...FINANCE_ROLES),
+    authorize(...FINANCE_WRITE_ROLES),
     mongoIdParam('invoiceId'),
     [
         body('type').isIn(['fixed', 'percent']).withMessage('type must be fixed or percent'),
@@ -162,7 +163,7 @@ router.post(
 
 router.put(
     '/invoices/:invoiceId/penalty/waive',
-    authorize(...FINANCE_ROLES),
+    authorize(...FINANCE_WRITE_ROLES),
     mongoIdParam('invoiceId'),
     [body('waiveAmount').optional().isFloat({ min: 0 })],
     validate,

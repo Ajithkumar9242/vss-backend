@@ -301,19 +301,26 @@ class AttendanceService {
       if ((row.attendedClasses || 0) < 0) throw new AppError('attendedClasses cannot be negative', 400);
     }
 
-    // Resolve academicYearId from SetupService if not supplied by caller
-    if (!academicYearId) {
+    const MonthlyAttendance = require('../../models/MonthlyAttendance');
+
+    // First check if a record already exists for this class and monthKey under any academic year
+    let existingDoc = await MonthlyAttendance.findOne({ classId, monthKey });
+
+    let targetAcademicYearId = academicYearId;
+    if (existingDoc) {
+      targetAcademicYearId = existingDoc.academicYearId;
+    } else if (!targetAcademicYearId) {
+      // Resolve academicYearId from SetupService if not supplied by caller
       try {
         const SetupService = require('../setup/service');
-        academicYearId = await SetupService.resolveAcademicYearId(null);
+        targetAcademicYearId = await SetupService.resolveAcademicYearId(null);
       } catch { /* leave null — index allows null but groups consistently */ }
     }
 
-    const MonthlyAttendance = require('../../models/MonthlyAttendance');
     const doc = await MonthlyAttendance.findOneAndUpdate(
-      { classId, academicYearId: academicYearId || null, monthKey },
+      { classId, academicYearId: targetAcademicYearId || null, monthKey },
       {
-        $set: { totalClassesConducted, rows, updatedBy: userId || null, academicYearId: academicYearId || null },
+        $set: { totalClassesConducted, rows, updatedBy: userId || null, academicYearId: targetAcademicYearId || null },
         $setOnInsert: { classId, monthKey, createdBy: userId || null },
       },
       { upsert: true, new: true, runValidators: true }
@@ -345,9 +352,18 @@ class AttendanceService {
     const MonthlyAttendance = require('../../models/MonthlyAttendance');
     const query = { classId, academicYearId: academicYearId || null };
     if (monthKey) query.monthKey = monthKey;
-    const doc = await MonthlyAttendance.findOne(query)
+    
+    let doc = await MonthlyAttendance.findOne(query)
       .sort({ monthKey: -1 })
       .lean();
+
+    if (!doc && monthKey) {
+      // Fallback: search by classId and monthKey under any academicYearId
+      doc = await MonthlyAttendance.findOne({ classId, monthKey })
+        .sort({ monthKey: -1 })
+        .lean();
+    }
+
     return doc || null;
   }
 
@@ -369,10 +385,13 @@ class AttendanceService {
     const Student = require('../../models/Student');
 
     const monthFilter = { classId, academicYearId: academicYearId || null };
-    const months = await MonthlyAttendance.find(monthFilter).sort({ monthKey: 1 }).lean();
+    let months = await MonthlyAttendance.find(monthFilter).sort({ monthKey: 1 }).lean();
+    if (!months || months.length === 0) {
+      months = await MonthlyAttendance.find({ classId }).sort({ monthKey: 1 }).lean();
+    }
     const totalConducted = months.reduce((s, m) => s + (m.totalClassesConducted || 0), 0);
 
-    const students = await Student.find({ classId, isActive: true })
+    const students = await Student.find({ classId, isActive: { $ne: false } })
       .select('name rollNo')
       .sort({ rollNo: 1 })
       .lean();

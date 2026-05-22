@@ -45,6 +45,7 @@ router.get('/sessions', AttendanceController.getSessions);
  */
 router.post(
   '/',
+  authorize('admin', 'super_admin', 'faculty'),
   idempotency(),
   [
     body('records')

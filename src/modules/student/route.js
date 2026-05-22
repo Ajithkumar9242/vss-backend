@@ -66,6 +66,28 @@ const createStudentValidation = [
 router.post('/', authorize(...WRITE_ROLES), createStudentValidation, StudentController.create);
 
 /**
+ * GET /api/students/sample-csv
+ * Download the CSV import template — must be before /:id routes.
+ */
+router.get('/sample-csv', authorize(...WRITE_ROLES), StudentController.getSampleCsv);
+
+/**
+ * POST /api/students/bulk-import
+ * Bulk create students from parsed CSV row objects.
+ * Body: { rows: Array<Object> }
+ * Must be before /:id routes.
+ */
+router.post(
+    '/bulk-import',
+    authorize(...WRITE_ROLES),
+    [
+        body('rows').isArray({ min: 1, max: 1000 }).withMessage('rows must be an array of 1–1000 items'),
+        validate,
+    ],
+    StudentController.bulkImport
+);
+
+/**
  * PATCH /api/students/:id
  * Partial update — admin/principal only.
  */

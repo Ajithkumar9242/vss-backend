@@ -17,12 +17,23 @@ async function run() {
   await mongoose.connect(process.env.MONGODB_URI);
   console.log('  📦 MongoDB connected\n');
 
+  const Student = require('./src/models/Student');
+  try {
+    // Drop old indices so Mongoose can recreate them with sparse option enabled
+    await Student.collection.dropIndex('admissionNumber_1').catch(() => {});
+    await Student.collection.dropIndex('admissionNo_1').catch(() => {});
+    await Student.collection.dropIndex('registerNo_1').catch(() => {});
+    await Student.cleanIndexes();
+    await Student.syncIndexes();
+  } catch (err) {
+    console.log('  ⚠️ Index synchronization warning:', err.message);
+  }
+
   const AdmissionService = require('./src/modules/admission/service');
   const StudentService = require('./src/modules/student/service');
   const SetupService = require('./src/modules/setup/service');
   const Class = require('./src/models/Class');
   const Section = require('./src/models/Section');
-  const Student = require('./src/models/Student');
   const Admission = require('./src/models/Admission');
   const AcademicYear = require('./src/models/AcademicYear');
 
@@ -48,6 +59,10 @@ async function run() {
 
   // Track created IDs for cleanup
   let createdAdmission, createdStudent;
+
+  // Cleanup leftover test data from previous runs
+  await Student.deleteMany({ name: { $in: ['__TEST STUDENT__', '__DIRECT STUDENT__', 'AdminTest S1', 'AdminTest S2', '__Direct Student__'] } });
+  await Admission.deleteMany({ studentName: { $in: ['__TEST STUDENT__', '__BAD__', '__Test Student__'] } });
 
   // 1. academicYearId fallback works
   try {

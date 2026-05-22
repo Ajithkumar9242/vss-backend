@@ -4,15 +4,15 @@ const router = require('express').Router();
 const { protect, authorize } = require('../../middlewares/auth');
 const InvoiceRegistryController = require('./controller');
 
-const ADMIN_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
+const ALL_ROLES = ['admin', 'super_admin', 'principal', 'accountant', 'visitor'];
+const WRITE_ROLES = ['admin', 'super_admin', 'principal', 'accountant'];
 
 
 router.use(protect);
-router.use(authorize(...ADMIN_ROLES));
 
-router.get('/', InvoiceRegistryController.list);
-router.get('/:id', InvoiceRegistryController.getDetail);
-router.post('/:id/cancel', InvoiceRegistryController.cancelInvoice);
-router.get('/:id/audit', InvoiceRegistryController.getAuditLogs);
+router.get('/', authorize(...ALL_ROLES), InvoiceRegistryController.list);
+router.get('/:id', authorize(...ALL_ROLES), InvoiceRegistryController.getDetail);
+router.post('/:id/cancel', authorize(...WRITE_ROLES), InvoiceRegistryController.cancelInvoice);
+router.get('/:id/audit', authorize(...ALL_ROLES), InvoiceRegistryController.getAuditLogs);
 
 module.exports = router;

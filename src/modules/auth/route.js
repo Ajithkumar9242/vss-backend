@@ -104,6 +104,24 @@ router.post('/faculty/otp/verify', otpVerifyRateLimit, [
   validate,
 ], AuthController.verifyFacultyOtp);
 
+// ─── General OTP Endpoints ─────────────────────────────────
+
+/** GET /api/auth/check-user */
+router.get('/check-user', AuthController.checkUser);
+
+/** POST /api/auth/send-otp */
+router.post('/send-otp', otpSendRateLimit, [
+  body('phone').trim().notEmpty().withMessage('Phone number is required'),
+  validate,
+], AuthController.sendOtpGeneral);
+
+/** POST /api/auth/verify-otp */
+router.post('/verify-otp', otpVerifyRateLimit, [
+  body('phone').trim().notEmpty().withMessage('Phone is required'),
+  body('otp').trim().notEmpty().withMessage('OTP is required'),
+  validate,
+], AuthController.verifyOtpGeneral);
+
 /** POST /api/auth/refresh — get new access token from refresh token */
 router.post('/refresh', [
   body('refreshToken').notEmpty().withMessage('Refresh token is required'),

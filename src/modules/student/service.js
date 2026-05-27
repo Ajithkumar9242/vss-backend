@@ -562,6 +562,8 @@ class StudentService {
       if (clean.admissionNo && !clean.admissionNumber) clean.admissionNumber = clean.admissionNo;
     }
 
+    const oldStudent = await Student.findById(studentId).select('parentPhone parentId admissionId').lean();
+
     const student = await Student.findByIdAndUpdate(
       studentId,
       { $set: clean },
@@ -571,6 +573,18 @@ class StudentService {
       .populate('sectionId', 'name');
 
     if (!student) throw new AppError('Student not found', 404);
+
+    if (oldStudent && clean.parentPhone && oldStudent.parentPhone !== clean.parentPhone) {
+      const { syncPhoneNumbers } = require('../../utils/phoneSync');
+      syncPhoneNumbers({
+        studentId,
+        parentId: oldStudent.parentId,
+        admissionId: oldStudent.admissionId,
+        newPhone: clean.parentPhone,
+        oldPhone: oldStudent.parentPhone
+      }).catch(err => console.error('[StudentUpdate PhoneSync Error]:', err));
+    }
+
     return student;
   }
 

@@ -106,6 +106,67 @@ class AuthController {
       return ApiResponse.success(res, {}, 'Logged out successfully');
     } catch (error) { next(error); }
   }
+
+  /** GET /api/auth/check-user */
+  static async checkUser(req, res, next) {
+    try {
+      const { identifier } = req.query;
+      if (!identifier) {
+        return res.status(200).json({ user_found: false, identifier: '' });
+      }
+
+      const User = require('../../models/User');
+      const trimmedIdentifier = identifier.trim();
+      const cleanedPhone = trimmedIdentifier.replace(/\D/g, '');
+      
+      let searchQueries = [
+        { email: trimmedIdentifier.toLowerCase() },
+        { phone: trimmedIdentifier }
+      ];
+
+      if (cleanedPhone) {
+        searchQueries.push({ phone: cleanedPhone });
+        if (cleanedPhone.length === 10) {
+          searchQueries.push({ phone: '91' + cleanedPhone });
+          searchQueries.push({ phone: '+' + '91' + cleanedPhone });
+        } else if (cleanedPhone.length === 12 && cleanedPhone.startsWith('91')) {
+          searchQueries.push({ phone: cleanedPhone.substring(2) });
+          searchQueries.push({ phone: '+' + cleanedPhone });
+        }
+      }
+
+      const user = await User.findOne({ $or: searchQueries });
+      
+      return res.status(200).json({
+        user_found: !!user,
+        identifier
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /api/auth/send-otp */
+  static async sendOtpGeneral(req, res, next) {
+    try {
+      const { phone } = req.body;
+      const result = await OtpService.sendOtpGeneral(phone);
+      return ApiResponse.success(res, result, result.message);
+    } catch (error) { next(error); }
+  }
+
+  /** POST /api/auth/verify-otp */
+  static async verifyOtpGeneral(req, res, next) {
+    try {
+      const { phone, otp } = req.body;
+      const result = await OtpService.verifyOtpGeneral(phone, otp);
+      return ApiResponse.success(res, {
+        user:         result.user,
+        token:        result.token,
+        refreshToken: result.refreshToken,
+      }, 'Login successful');
+    } catch (error) { next(error); }
+  }
 }
 
 module.exports = AuthController;

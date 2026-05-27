@@ -19,12 +19,16 @@ class ApiResponse {
     });
   }
 
-  static error(res, message = 'Something went wrong', statusCode = 500, errors = null) {
-    return res.status(statusCode).json({
+  static error(res, message = 'Something went wrong', statusCode = 500, errors = null, code = null) {
+    const response = {
       success: false,
       data: errors,
       message,
-    });
+    };
+    if (code) {
+      response.code = code;
+    }
+    return res.status(statusCode).json(response);
   }
 
   static paginated(res, data, pagination, message = 'Success') {

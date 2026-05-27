@@ -81,8 +81,10 @@ const errorHandler = (err, req, res, next) => {
   if (statusCode === 500 && process.env.NODE_ENV === 'production') {
     message = 'Internal Server Error';
   }
+  
+  const errCode = typeof err.code === 'string' ? err.code : null;
 
-  return ApiResponse.error(res, message, statusCode);
+  return ApiResponse.error(res, message, statusCode, err.data || null, errCode);
 };
 
 /**

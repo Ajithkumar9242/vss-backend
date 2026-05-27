@@ -492,10 +492,21 @@ class AdmissionService {
     // Capture a lightweight change summary for audit
     const changedFields = Object.keys(data).filter(k => String(data[k]) !== String(admission[k]));
 
+    const oldAdmission = await Admission.findById(admissionId).select('parentPhone').lean();
+
     // Merge and save — pre-save hook will CAPS names automatically
     Object.assign(admission, data);
     admission.editHistory.push({ editedBy: userId, editedAt: new Date(), changes: { fields: changedFields } });
     await admission.save();
+
+    if (oldAdmission && data.parentPhone && oldAdmission.parentPhone !== data.parentPhone) {
+      const { syncPhoneNumbers } = require('../../utils/phoneSync');
+      syncPhoneNumbers({
+        admissionId,
+        newPhone: data.parentPhone,
+        oldPhone: oldAdmission.parentPhone
+      }).catch(err => console.error('[AdmissionUpdate PhoneSync Error]:', err));
+    }
 
     ActivityService.log({
       action: `Admission updated — ${admission.applicationNo}`,

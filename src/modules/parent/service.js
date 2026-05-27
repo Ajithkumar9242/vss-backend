@@ -88,6 +88,8 @@ class ParentService {
     const parent = await Parent.findOne({ userId });
     if (!parent) throw new AppError('Parent profile not found for this account', 404);
 
+    const oldPhone = parent.phone;
+
     // Whitelist editable fields only
     const allowed = ['phone', 'email', 'address', 'occupation'];
     allowed.forEach((field) => {
@@ -95,6 +97,17 @@ class ParentService {
     });
 
     await parent.save();
+
+    if (updates.phone && oldPhone !== updates.phone) {
+      const { syncPhoneNumbers } = require('../../utils/phoneSync');
+      syncPhoneNumbers({
+        parentId: parent._id,
+        userId,
+        newPhone: updates.phone,
+        oldPhone
+      }).catch(err => console.error('[ParentMyProfileUpdate PhoneSync Error]:', err));
+    }
+
     return parent;
   }
 
@@ -114,6 +127,8 @@ class ParentService {
       if (v !== null && v !== undefined && v !== '') clean[k] = v;
     });
 
+    const oldParent = await Parent.findById(parentId).select('phone userId').lean();
+
     const parent = await Parent.findByIdAndUpdate(
       parentId,
       { $set: clean },
@@ -121,6 +136,17 @@ class ParentService {
     ).populate('linkedStudents', 'name rollNo');
 
     if (!parent) throw new AppError('Parent not found', 404);
+
+    if (oldParent && clean.phone && oldParent.phone !== clean.phone) {
+      const { syncPhoneNumbers } = require('../../utils/phoneSync');
+      syncPhoneNumbers({
+        parentId,
+        userId: oldParent.userId,
+        newPhone: clean.phone,
+        oldPhone: oldParent.phone
+      }).catch(err => console.error('[ParentUpdate PhoneSync Error]:', err));
+    }
+
     return parent;
   }
 }

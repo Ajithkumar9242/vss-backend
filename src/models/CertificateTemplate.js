@@ -34,7 +34,11 @@ const certificateTemplateSchema = new mongoose.Schema(
     title: { type: String, default: '' },
     // Letterhead / logo images (Cloudinary URLs or local URLs)
     letterheadUrl: { type: String, default: null },
+    letterheadPublicId: { type: String, default: null },
     signatureUrl:  { type: String, default: null },
+    signaturePublicId: { type: String, default: null },
+    logoUrl:       { type: String, default: null },
+    logoPublicId:  { type: String, default: null },
     // Formatting options
     fontFamily: { type: String, default: 'Times New Roman' },
     fontSize:   { type: Number, default: 12 },

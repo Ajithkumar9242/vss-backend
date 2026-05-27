@@ -135,7 +135,7 @@ class AuthService {
       return Parent.findById(user.referenceId)
         .populate({
           path: 'linkedStudents',
-          select: 'name rollNo classId',
+          select: 'name rollNo classId studentPhoto avatar photo admissionId',
           populate: { path: 'classId', select: 'name code' },
         })
         .lean();

@@ -16,7 +16,7 @@ const messageSchema = new mongoose.Schema(
     },
     targetType: {
       type: String,
-      enum: ['all', 'class', 'student'],
+      enum: ['all', 'class', 'student', 'faculty'],
       required: [true, 'Target type is required'],
     },
     targetId: {
@@ -28,6 +28,16 @@ const messageSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    attachments: [
+      {
+        url: { type: String, required: true },
+        publicId: { type: String },
+        originalName: { type: String },
+        mimeType: { type: String },
+        size: { type: Number },
+        uploadedAt: { type: Date, default: Date.now },
+      }
+    ],
   },
   { timestamps: true }
 );

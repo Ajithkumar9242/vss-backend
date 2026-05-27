@@ -25,7 +25,7 @@ class ParentService {
     const skip = (page - 1) * limit;
     const [parents, total] = await Promise.all([
       Parent.find(filter)
-        .populate('linkedStudents', 'name rollNo classId')
+        .populate('linkedStudents', 'name rollNo classId studentPhoto avatar photo admissionId')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -44,7 +44,7 @@ class ParentService {
     const parent = await Parent.findById(parentId)
       .populate({
         path: 'linkedStudents',
-        select: 'name rollNo classId',
+        select: 'name rollNo classId studentPhoto avatar photo admissionId',
         populate: { path: 'classId', select: 'name code' },
       });
 

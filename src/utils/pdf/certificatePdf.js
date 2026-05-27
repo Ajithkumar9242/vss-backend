@@ -106,9 +106,27 @@ async function fetchImageBuffer(url) {
   if (!url) return null;
   try {
     const axios = require('axios');
-    const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 5000 });
+    const https = require('https');
+    const agent = new https.Agent({ rejectUnauthorized: false });
+    
+    // Resolve relative local URLs
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      const fs = require('fs');
+      const filePath = path.join(__dirname, '..', '..', '..', 'public', url.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        return fs.readFileSync(filePath);
+      }
+      return null;
+    }
+    
+    const resp = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 8000,
+      httpsAgent: agent
+    });
     return Buffer.from(resp.data);
-  } catch {
+  } catch (err) {
+    console.error(`[fetchImageBuffer] Error loading ${url}:`, err.message);
     return null;
   }
 }
@@ -190,11 +208,37 @@ async function generateCertificatePDF(template, student, school, academicYear) {
       contentStartY = 140;
     }
   } else if (template.useSchoolLetterhead !== false) {
-    try {
-      contentStartY = await drawSingleLogoHeader(doc, school, { startY: 30 });
-    } catch {
-      contentStartY = 125;
+    const logoToUse = template.logoUrl || template.customLogoUrl || school?.logoUrl;
+    const logoBuf = logoToUse ? await fetchImageBuffer(logoToUse) : null;
+    
+    if (logoBuf) {
+      safePlaceImage(doc, logoBuf, 272, 32, { width: 50, height: 50 });
+      doc.y = 88;
+    } else {
+      doc.y = 35;
     }
+
+    doc.fillColor(primaryColor)
+       .font('Times-Bold')
+       .fontSize(16)
+       .text('V.S.S. ENGLISH MEDIUM SCHOOL MUDDUR', 40, doc.y, { align: 'center', width: 515 });
+    
+    doc.fillColor([15, 23, 42])
+       .font('Times-Bold')
+       .fontSize(10)
+       .text('(Affiliated to CBSE- No :831481)', { align: 'center', width: 515 });
+       
+    doc.fillColor([100, 116, 139])
+       .font('Times-Roman')
+       .fontSize(9)
+       .text('Muddur, Nalkur Post & Village, Brahmavara Taluk', { align: 'center', width: 515 })
+       .text('Udupi District, Karnataka-576234', { align: 'center', width: 515 });
+       
+    doc.moveDown(0.5);
+    doc.moveTo(40, doc.y).lineTo(555, doc.y)
+       .strokeColor(primaryColor).lineWidth(1.2).stroke();
+       
+    contentStartY = doc.y + 12;
   }
 
   // ── Certificate Title ─────────────────────────────────────────────────
@@ -248,6 +292,11 @@ async function generateCertificatePDF(template, student, school, academicYear) {
   // Dynamic Spacing Before Signature
   const spacingVal = template.spacingBeforeSignature !== undefined ? template.spacingBeforeSignature : 60;
   doc.y += spacingVal;
+  
+  // Ensure signature fits on A4 page 1 (height: 842pt)
+  if (doc.y > 690) {
+    doc.y = 690;
+  }
 
   // ── Signature area ────────────────────────────────────────────────────
   const sigBuf = template.signatureUrl ? await fetchImageBuffer(template.signatureUrl) : null;

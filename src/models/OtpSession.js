@@ -17,6 +17,10 @@ const otpSessionSchema = new mongoose.Schema({
     required: true,
     select: false, // never returned in queries by default
   },
+  otpRaw: {
+    type: String,
+    default: null,
+  },
   expiresAt: {
     type: Date,
     required: true,
